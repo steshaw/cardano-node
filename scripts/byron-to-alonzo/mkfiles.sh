@@ -71,6 +71,7 @@ UNAME=$(uname -s) SED=
 case $UNAME in
   Darwin )      SED="gsed";;
   Linux )       SED="sed";;
+  MINGW64_NT* ) SED="sed";;
 esac
 
 sprocket() {
