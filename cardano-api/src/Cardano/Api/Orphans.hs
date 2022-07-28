@@ -691,26 +691,26 @@ instance Crypto.Crypto crypto => ToJSON (VMap VB VP (Shelley.Credential 'Shelley
 
 -----
 
-instance ToJSON (Consensus.StakeSnapshots crypto) where
+instance Crypto.Crypto crypto => ToJSON (Consensus.StakeSnapshots crypto) where
   toJSON = object . stakeSnapshotsToPair
   toEncoding = pairs . mconcat . stakeSnapshotsToPair
 
-stakeSnapshotsToPair :: Aeson.KeyValue a => Consensus.StakeSnapshots crypto -> [a]
+stakeSnapshotsToPair :: (Aeson.KeyValue a, Crypto.Crypto crypto) => Consensus.StakeSnapshots crypto -> [a]
 stakeSnapshotsToPair Consensus.StakeSnapshots
     { Consensus.ssStakeSnapshots
     , Consensus.ssMarkTotal
     , Consensus.ssSetTotal
     , Consensus.ssGoTotal
-    } = mconcat
-    -- Only output the first pool in order to preserve backwards compatibility of the output
-    -- format.  The output format will have to change to support multiple pools when that
-    -- functionality is added.
-    [ take 1 (Map.elems ssStakeSnapshots) >>= stakeSnapshotToPair
-    , [ "activeStakeMark" .= ssMarkTotal
-      , "activeStakeSet" .= ssSetTotal
-      , "activeStakeGo" .= ssGoTotal
-      ]
+    } =
+    [ "pools" .= ssStakeSnapshots
+    , "activeStakeMark" .= ssMarkTotal
+    , "activeStakeSet" .= ssSetTotal
+    , "activeStakeGo" .= ssGoTotal
     ]
+
+instance ToJSON (Consensus.StakeSnapshot crypto) where
+  toJSON = object . stakeSnapshotToPair
+  toEncoding = pairs . mconcat . stakeSnapshotToPair
 
 stakeSnapshotToPair :: Aeson.KeyValue a => Consensus.StakeSnapshot crypto -> [a]
 stakeSnapshotToPair Consensus.StakeSnapshot
