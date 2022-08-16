@@ -51,6 +51,17 @@ import qualified Ouroboros.Consensus.Node as Consensus (NetworkP2PMode (..))
 import           Ouroboros.Consensus.Storage.LedgerDB.DiskPolicy (SnapshotInterval (..))
 import           Ouroboros.Network.NodeToNode (AcceptedConnectionsLimit (..), DiffusionMode (..))
 
+-- Since we ignore unknown fields, if we've explictly removed or renamed
+-- a field we should error out so that a user isn't surprised when they
+-- upgrade.
+data RemovedField = RemovedField { rfField :: Key, rfErr :: String }
+  deriving Show
+
+failOnRemovedFields :: Aeson.Object -> [RemovedField] -> Aeson.Parser ()
+failOnRemovedFields obj = mapM_ $ \(RemovedField field err) -> do
+  mVal :: Maybe Aeson.Value <- obj .:? field
+  when (isJust mVal) $ fail err
+
 data NetworkP2PMode = EnabledP2PMode | DisabledP2PMode
   deriving (Eq, Show, Generic)
 
@@ -374,8 +385,16 @@ instance FromJSON PartialNodeConfiguration where
              }
 
       parseHardForkProtocol v = do
-        npcTestEnableDevelopmentHardForkEras
-          <- v .:? "TestEnableDevelopmentHardForkEras"
+
+        failOnRemovedFields v
+          [ RemovedField
+              { rfField = "TestEnableDevelopmentHardForkEras"
+              , rfErr = "TestEnableDevelopmentHardForkEras has been renamed to TestEnableAdvertiseDevelopmentProtVer"
+              }
+          ]
+
+        npcTestEnableAdvertiseDevelopmentProtVer
+          <- v .:? "TestEnableAdvertiseDevelopmentProtVer"
                .!= False
 
         npcTestShelleyHardForkAtEpoch   <- v .:? "TestShelleyHardForkAtEpoch"
@@ -394,7 +413,7 @@ instance FromJSON PartialNodeConfiguration where
         npcTestBabbageHardForkAtVersion <- v .:? "TestBabbageHardForkAtVersion"
 
         pure NodeHardForkProtocolConfiguration {
-               npcTestEnableDevelopmentHardForkEras,
+               npcTestEnableAdvertiseDevelopmentProtVer,
 
                npcTestShelleyHardForkAtEpoch,
                npcTestShelleyHardForkAtVersion,

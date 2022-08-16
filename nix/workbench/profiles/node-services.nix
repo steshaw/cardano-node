@@ -112,7 +112,7 @@ let
           ]
         //
         {
-          TestEnableDevelopmentHardForkEras     = true;
+          TestEnableAdvertiseDevelopmentProtVer = true;
           TestEnableDevelopmentNetworkProtocols = true;
           TurnOnLogMetrics                      = true;
         };

@@ -85,12 +85,12 @@ mkSomeConsensusProtocolCardano NodeByronProtocolConfiguration {
                              npcAlonzoGenesisFileHash
                            }
                            NodeHardForkProtocolConfiguration {
-                            -- npcTestEnableDevelopmentHardForkEras,
-                            -- During testing of the Alonzo era, we conditionally declared that we
-                            -- knew about the Alonzo era. We do so only when a config option for
-                            -- testing development/unstable eras is used. This lets us include
-                            -- not-yet-ready eras in released node versions without mainnet nodes
-                            -- prematurely advertising that they could hard fork into the new era.
+                             -- npcTestEnableDevelopmentProtVer
+                             -- During testing of the Alonzo era, we conditionally declared that we
+                             -- knew about the Alonzo era. We do so only when a config option for
+                             -- testing development/unstable eras is used. This lets us include
+                             -- not-yet-ready eras in released node versions without mainnet nodes
+                             -- prematurely advertising that they could hard fork into the new era.
                              npcTestShelleyHardForkAtEpoch,
                              npcTestShelleyHardForkAtVersion,
                              npcTestAllegraHardForkAtEpoch,
