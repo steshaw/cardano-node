@@ -45,6 +45,7 @@ import qualified Cardano.Binary as CBOR
 --TODO: following import needed for orphan Eq Script instance
 import           Cardano.Ledger.Shelley.Scripts ()
 
+import           Cardano.CLI.Helpers (printWarning)
 import           Cardano.CLI.Run.Friendly (friendlyTxBS, friendlyTxBodyBS)
 import           Cardano.CLI.Shelley.Key (InputDecodeError, readSigningKeyFileAnyOf)
 import           Cardano.CLI.Shelley.Output
@@ -586,52 +587,16 @@ runTxBuild era (AnyConsensusModeParams cModeParams) networkId mScriptValidity
            (TxOutChangeAddress changeAddr) valuesWithScriptWits mLowerBound mUpperBound
            certsAndMaybeScriptWits withdrawals reqSigners txAuxScripts txMetadata mpparams
            mUpdatePropF mOverrideWits outputOptions = do
+
+  liftIO $ forM_ mpparams $ \_ ->
+    printWarning "'--protocol-params-file' for 'transaction build' is deprecated"
+
   let consensusMode = consensusModeOnly cModeParams
       dummyFee = Just $ Lovelace 0
       inputsThatRequireWitnessing = [input | (input,_) <- inputsAndMaybeScriptWits]
 
-  -- Pure
-  let allReferenceInputs = getAllReferenceInputs
-                             inputsAndMaybeScriptWits
-                             (snd valuesWithScriptWits)
-                             certsAndMaybeScriptWits
-                             withdrawals readOnlyRefIns
-
-  validatedCollateralTxIns <- hoistEither $ validateTxInsCollateral era txinsc
-  validatedRefInputs <- hoistEither $ validateTxInsReference era allReferenceInputs
-  validatedTotCollateral <- hoistEither $ validateTxTotalCollateral era mTotCollateral
-  validatedRetCol <- hoistEither $ validateTxReturnCollateral era mReturnCollateral
-  dFee <- hoistEither $ validateTxFee era dummyFee
-  validatedBounds <- (,) <$> hoistEither (validateTxValidityLowerBound era mLowerBound)
-                         <*> hoistEither (validateTxValidityUpperBound era mUpperBound)
-  validatedReqSigners <- hoistEither $ validateRequiredSigners era reqSigners
-  validatedPParams <- hoistEither $ validateProtocolParameters era mpparams
-  validatedTxWtdrwls <- hoistEither $ validateTxWithdrawals era withdrawals
-  validatedTxCerts <- hoistEither $ validateTxCertificates era certsAndMaybeScriptWits
-  validatedTxUpProp <- hoistEither $ validateTxUpdateProposal era mUpdatePropF
-  validatedMintValue <- hoistEither $ createTxMintValue era valuesWithScriptWits
-  validatedTxScriptValidity <- hoistEither $ validateTxScriptValidity era mScriptValidity
-
   case (consensusMode, cardanoEraStyle era) of
     (CardanoMode, ShelleyBasedEra _sbe) -> do
-      let txBodyContent = TxBodyContent
-                            (validateTxIns inputsAndMaybeScriptWits)
-                            validatedCollateralTxIns
-                            validatedRefInputs
-                            txouts
-                            validatedTotCollateral
-                            validatedRetCol
-                            dFee
-                            validatedBounds
-                            txMetadata
-                            txAuxScripts
-                            validatedReqSigners
-                            validatedPParams
-                            validatedTxWtdrwls
-                            validatedTxCerts
-                            validatedTxUpProp
-                            validatedMintValue
-                            validatedTxScriptValidity
 
       eInMode <- case toEraInMode era CardanoMode of
                    Just result -> return result
@@ -641,6 +606,12 @@ runTxBuild era (AnyConsensusModeParams cModeParams) networkId mScriptValidity
 
       SocketPath sockPath <- firstExceptT ShelleyTxCmdSocketEnvError
                              $ newExceptT readEnvSocketPath
+      -- Pure
+      let allReferenceInputs = getAllReferenceInputs
+                                 inputsAndMaybeScriptWits
+                                 (snd valuesWithScriptWits)
+                                 certsAndMaybeScriptWits
+                                 withdrawals readOnlyRefIns
 
       let allTxInputs = inputsThatRequireWitnessing ++ allReferenceInputs ++ txinsc
           localNodeConnInfo = LocalNodeConnectInfo
@@ -671,6 +642,39 @@ runTxBuild era (AnyConsensusModeParams cModeParams) networkId mScriptValidity
       txEraUtxo <- case first ShelleyTxCmdTxEraCastErr (eraCast era nodeEraUTxO) of
                      Right txEraUtxo -> return txEraUtxo
                      Left e -> left e
+      validatedCollateralTxIns <- hoistEither $ validateTxInsCollateral era txinsc
+      validatedRefInputs <- hoistEither $ validateTxInsReference era allReferenceInputs
+      validatedTotCollateral <- hoistEither $ validateTxTotalCollateral era mTotCollateral
+      validatedRetCol <- hoistEither $ validateTxReturnCollateral era mReturnCollateral
+      dFee <- hoistEither $ validateTxFee era dummyFee
+      validatedBounds <- (,) <$> hoistEither (validateTxValidityLowerBound era mLowerBound)
+                             <*> hoistEither (validateTxValidityUpperBound era mUpperBound)
+      validatedReqSigners <- hoistEither $ validateRequiredSigners era reqSigners
+      validatedPParams <- hoistEither $ validateProtocolParameters era (Just pparams)
+      validatedTxWtdrwls <- hoistEither $ validateTxWithdrawals era withdrawals
+      validatedTxCerts <- hoistEither $ validateTxCertificates era certsAndMaybeScriptWits
+      validatedTxUpProp <- hoistEither $ validateTxUpdateProposal era mUpdatePropF
+      validatedMintValue <- hoistEither $ createTxMintValue era valuesWithScriptWits
+      validatedTxScriptValidity <- hoistEither $ validateTxScriptValidity era mScriptValidity
+
+      let txBodyContent = TxBodyContent
+                          (validateTxIns inputsAndMaybeScriptWits)
+                          validatedCollateralTxIns
+                          validatedRefInputs
+                          txouts
+                          validatedTotCollateral
+                          validatedRetCol
+                          dFee
+                          validatedBounds
+                          txMetadata
+                          txAuxScripts
+                          validatedReqSigners
+                          validatedPParams
+                          validatedTxWtdrwls
+                          validatedTxCerts
+                          validatedTxUpProp
+                          validatedMintValue
+                          validatedTxScriptValidity
 
       balancedTxBody@(BalancedTxBody _ _ _ fee) <-
         firstExceptT ShelleyTxCmdBalanceTxBody
