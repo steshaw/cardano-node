@@ -128,7 +128,7 @@ getSbe (ShelleyBasedEra sbe) = return sbe
 executeQueryCardanoMode
   :: CardanoEra era
   -> NetworkId
-  -> QueryInMode CardanoMode (Either EraMismatch result)
+  -> QueryInMode CardanoMode fp (Either EraMismatch result)
   -> IO (Either QueryConvenienceError result)
 executeQueryCardanoMode era nid q = do
   eSocketPath <- first SockErr <$> readEnvSocketPath
@@ -145,9 +145,9 @@ executeQueryCardanoMode era nid q = do
 
 -- | Execute a query against the local node in any mode.
 executeQueryAnyMode
-  :: forall result era mode. CardanoEra era
+  :: forall result era mode fp. CardanoEra era
   -> LocalNodeConnectInfo mode
-  -> QueryInMode mode (Either EraMismatch result)
+  -> QueryInMode mode fp (Either EraMismatch result)
   -> IO (Either QueryConvenienceError result)
 executeQueryAnyMode era localNodeConnInfo q = do
   let cMode = consensusModeOnly $ localConsensusModeParams localNodeConnInfo

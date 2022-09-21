@@ -593,7 +593,7 @@ toConsensusQueryShelleyBased erainmode QueryCurrentEpochState =
     QueryWithSomeResult (consensusQueryInEraInMode erainmode (Consensus.GetCBOR Consensus.DebugEpochState))
 
 toConsensusQueryShelleyBased erainmode (QueryPoolState poolIds) =
-    Some (consensusQueryInEraInMode erainmode (Consensus.GetCBOR (Consensus.GetPoolState (getPoolIds <$> poolIds))))
+    QueryWithSomeResult (consensusQueryInEraInMode erainmode (Consensus.GetCBOR (Consensus.GetPoolState (getPoolIds <$> poolIds))))
   where
     getPoolIds :: Set PoolId -> Set (Shelley.KeyHash Shelley.StakePool Consensus.StandardCrypto)
     getPoolIds = Set.map (\(StakePoolKeyHash kh) -> kh)
