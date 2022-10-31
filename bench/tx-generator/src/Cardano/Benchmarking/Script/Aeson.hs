@@ -19,8 +19,8 @@ import           Data.Aeson.Encode.Pretty
 import qualified Data.Attoparsec.ByteString as Atto
 
 import qualified Ouroboros.Network.Magic as Ouroboros (NetworkMagic(..))
-import           Cardano.Api (ScriptData, ScriptDataJsonSchema(..), NetworkId(..)
-                              , scriptDataFromJson, scriptDataToJson)
+import           Cardano.Api (ScriptData, ScriptDataJsonSchema(..), NetworkId(..), SerialiseAsCBOR
+                              , scriptDataFromJson, scriptDataToJson, WithCBOR, withoutCBOR, withCBORViaRoundtrip)
 import           Cardano.Api.Shelley (ProtocolParameters)
 import           Cardano.CLI.Types (SigningKeyFile(..))
 
@@ -54,11 +54,16 @@ instance FromJSON ProtocolParametersSource where
   parseJSON = genericParseJSON jsonOptionsUnTaggedSum
 
 -- Orphan instance used in the tx-generator
+instance ToJSON a => ToJSON (WithCBOR a) where
+  toJSON = toJSON . withoutCBOR
+instance (SerialiseAsCBOR a, FromJSON a) => FromJSON (WithCBOR a) where
+  parseJSON = fmap withCBORViaRoundtrip . parseJSON
+
 instance ToJSON ScriptData where
   toJSON = scriptDataToJson ScriptDataJsonNoSchema
 instance FromJSON ScriptData where
   parseJSON v = case scriptDataFromJson ScriptDataJsonNoSchema v of
-    Right r -> return r
+    Right r -> return $ withoutCBOR r
     Left err -> fail $ show err
 
 instance ToJSON Generator where
