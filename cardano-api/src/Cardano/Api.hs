@@ -430,6 +430,11 @@ module Cardano.Api (
     FromCBOR,
     serialiseToCBOR,
     deserialiseFromCBOR,
+    WithCBOR,
+    getCBOR,
+    getCBORShort,
+    withoutCBOR,
+    withCBORViaRoundtrip,
 
     -- ** JSON
     ToJSON,
@@ -710,6 +715,7 @@ module Cardano.Api (
 
 import           Cardano.Api.Address
 import           Cardano.Api.Block
+import           Cardano.Api.CBOR
 import           Cardano.Api.Certificate
 import           Cardano.Api.Convenience.Constraints
 import           Cardano.Api.Convenience.Construction
