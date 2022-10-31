@@ -245,6 +245,7 @@ import           Ouroboros.Consensus.Shelley.Eras (StandardAllegra, StandardAlon
                    StandardMary, StandardShelley)
 
 import           Cardano.Api.Address
+import           Cardano.Api.CBOR
 import           Cardano.Api.Certificate
 import           Cardano.Api.Convenience.Constraints
 import           Cardano.Api.EraCast
@@ -431,7 +432,7 @@ txOutToJsonValue era (TxOut addr val dat refScript) =
        TxOutDatumInTx' _ h _ ->
          "datumhash" .= toJSON h
        TxOutDatumInline _ datum ->
-         "inlineDatumhash"  .= toJSON (hashScriptData datum)
+         "inlineDatumhash"  .= toJSON (SafeHash.extractHash $ SafeHash.hashAnnotated datum)
 
    datJsonVal :: TxOutDatum ctx era -> Aeson.Value
    datJsonVal d =
@@ -1339,7 +1340,7 @@ data TxOutDatum ctx era where
      --
      TxOutDatumInTx'  :: ScriptDataSupportedInEra era
                       -> Hash ScriptData
-                      -> ScriptData
+                      -> HashableScriptData
                       -> TxOutDatum CtxTx era
 
      -- | A transaction output that specifies the whole datum instead of the
@@ -1347,7 +1348,7 @@ data TxOutDatum ctx era where
      -- it only exists at the transaction output.
      --
      TxOutDatumInline :: ReferenceTxInsScriptsInlineDatumsSupportedInEra era
-                      -> ScriptData
+                      -> HashableScriptData
                       -> TxOutDatum ctx era
 
 deriving instance Eq   (TxOutDatum ctx era)
@@ -1374,7 +1375,7 @@ instance EraCast (TxOutDatum ctx)  where
 
 pattern TxOutDatumInTx
   :: ScriptDataSupportedInEra era
-  -> ScriptData
+  -> HashableScriptData
   -> TxOutDatum CtxTx era
 pattern TxOutDatumInTx s d <- TxOutDatumInTx' s _ d
   where
@@ -3161,7 +3162,7 @@ convScriptData era txOuts scriptWitnesses =
                 , let d' = toAlonzoData d
                 ]
 
-          scriptdata :: [ScriptData]
+          scriptdata :: [HashableScriptData]
           scriptdata =
               [ d | TxOut _ _ (TxOutDatumInTx _ d) _ <- txOuts ]
            ++ [ d | (_, AnyScriptWitness
@@ -3448,7 +3449,7 @@ makeShelleyTransactionBody era@ShelleyBasedEraAlonzo
           , let d' = toAlonzoData d
           ]
 
-    scriptdata :: [ScriptData]
+    scriptdata :: [HashableScriptData]
     scriptdata =
         [ d | TxOut _ _ (TxOutDatumInTx _ d) _ <- txOuts ]
      ++ [ d | (_, AnyScriptWitness
@@ -3557,7 +3558,7 @@ makeShelleyTransactionBody era@ShelleyBasedEraBabbage
           , let d' = toAlonzoData d
           ]
 
-    scriptdata :: [ScriptData]
+    scriptdata :: [HashableScriptData]
     scriptdata =
         [ d | TxOut _ _ (TxOutDatumInTx _ d) _ <- txOuts ]
      ++ [ d | (_, AnyScriptWitness
@@ -3887,12 +3888,13 @@ calculateExecutionUnitsLovelace euPrices eUnits =
 -- onchain within a transaction output.
 --
 
-scriptDataToInlineDatum :: ScriptData -> Babbage.Datum ledgerera
-scriptDataToInlineDatum = Babbage.Datum . Alonzo.dataToBinaryData . toAlonzoData
+scriptDataToInlineDatum :: HashableScriptData -> Babbage.Datum ledgerera
+scriptDataToInlineDatum
+    = either (error "scriptDataToInlineDatum: invalid script data") Babbage.Datum
+    . Alonzo.makeBinaryData
+    . getCBORShort
 
 binaryDataToScriptData
-  :: ReferenceTxInsScriptsInlineDatumsSupportedInEra era -> Alonzo.BinaryData ledgerera -> ScriptData
-binaryDataToScriptData ReferenceTxInsScriptsInlineDatumsInBabbageEra  d =
+  :: ReferenceTxInsScriptsInlineDatumsSupportedInEra era -> Alonzo.BinaryData ledgerera -> HashableScriptData
+binaryDataToScriptData ReferenceTxInsScriptsInlineDatumsInBabbageEra d =
   fromAlonzoData $ Alonzo.binaryDataToData d
-
-

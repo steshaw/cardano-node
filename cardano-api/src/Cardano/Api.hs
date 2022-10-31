@@ -397,6 +397,11 @@ module Cardano.Api (
 
     -- ** Script data
     ScriptData(..),
+    IsScriptData,
+    toScriptData,
+    HashableScriptData,
+    asHashableScriptData,
+    unsafeScriptDataToHashable,
     hashScriptData,
 
     -- ** Validation

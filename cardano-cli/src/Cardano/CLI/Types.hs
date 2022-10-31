@@ -52,8 +52,8 @@ import           Data.Word (Word64)
 import qualified Cardano.Chain.Slotting as Byron
 
 import           Cardano.Api (AddressAny, AnyScriptLanguage, EpochNo, ExecutionUnits, Hash,
-                   InAnyCardanoEra, PaymentKey, PolicyId, ScriptData, SlotNo (SlotNo), Tx, TxId,
-                   TxIn, Value, WitCtxMint, WitCtxStake, WitCtxTxIn)
+                   HashableScriptData, InAnyCardanoEra, PaymentKey, PolicyId, ScriptData, SlotNo (SlotNo),
+                   Tx, TxId, TxIn, Value, WitCtxMint, WitCtxStake, WitCtxTxIn)
 
 import qualified Cardano.Ledger.Crypto as Crypto
 
@@ -260,9 +260,9 @@ newtype VerificationKeyFile
 newtype ScriptFile = ScriptFile { unScriptFile :: FilePath }
                      deriving (Eq, Show)
 
-data ScriptDataOrFile = ScriptDataCborFile  FilePath   -- ^ By reference to a CBOR file
-                      | ScriptDataJsonFile  FilePath   -- ^ By reference to a JSON file
-                      | ScriptDataValue     ScriptData -- ^ By value
+data ScriptDataOrFile = ScriptDataCborFile  FilePath           -- ^ By reference to a CBOR file
+                      | ScriptDataJsonFile  FilePath           -- ^ By reference to a JSON file
+                      | ScriptDataValue     HashableScriptData -- ^ By value
   deriving (Eq, Show)
 
 type ScriptRedeemerOrFile = ScriptDataOrFile

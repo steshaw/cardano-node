@@ -1266,7 +1266,7 @@ readScriptRedeemerOrFile :: ScriptRedeemerOrFile
 readScriptRedeemerOrFile = readScriptDataOrFile
 
 readScriptDataOrFile :: ScriptDataOrFile
-                     -> ExceptT ShelleyTxCmdError IO ScriptData
+                     -> ExceptT ShelleyTxCmdError IO HashableScriptData
 readScriptDataOrFile (ScriptDataValue d) = return d
 readScriptDataOrFile (ScriptDataJsonFile fp) = do
   bs <- handleIOExceptT (ShelleyTxCmdReadFileError . FileIOError fp) $ LBS.readFile fp
@@ -1281,7 +1281,7 @@ readScriptDataOrFile (ScriptDataCborFile fp) = do
   bs <- handleIOExceptT (ShelleyTxCmdReadFileError . FileIOError fp)
           $ BS.readFile fp
   sd <- firstExceptT (ShelleyTxCmdMetaDecodeError fp)
-          $ hoistEither $ deserialiseFromCBOR AsScriptData bs
+          $ hoistEither $ deserialiseFromCBOR asHashableScriptData bs
   firstExceptT (ShelleyTxCmdScriptDataValidationError fp)
           $ hoistEither $ validateScriptData sd
   return sd
