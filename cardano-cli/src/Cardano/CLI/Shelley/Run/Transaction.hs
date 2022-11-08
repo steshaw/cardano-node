@@ -983,7 +983,8 @@ runTxSign txOrTxBody witSigningData mnw (TxFile outTxFile) = do
   let (sksByron, sksShelley) = partitionSomeWitnesses $ map categoriseSomeWitness sks
 
   case txOrTxBody of
-    (InputTxFile (TxFile inputTxFile)) -> do
+    (InputTxFile (TxFile inputTxFilePath)) -> do
+      inputTxFile <- liftIO $ fileOrPipe inputTxFilePath
       anyTx <- firstExceptT ShelleyTxCmdCddlError . newExceptT $ readFileTx inputTxFile
 
       InAnyShelleyBasedEra _era tx <-
@@ -1002,7 +1003,8 @@ runTxSign txOrTxBody witSigningData mnw (TxFile outTxFile) = do
       firstExceptT ShelleyTxCmdWriteFileError . newExceptT $
         writeTxFileTextEnvelopeCddl outTxFile signedTx
 
-    (InputTxBodyFile (TxBodyFile txbodyFile)) -> do
+    (InputTxBodyFile (TxBodyFile txbodyFilePath)) -> do
+      txbodyFile <- liftIO $ fileOrPipe txbodyFilePath
       unwitnessed <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                        $ readFileTxBody txbodyFile
 
@@ -1050,15 +1052,17 @@ runTxSubmit
   -> NetworkId
   -> FilePath
   -> ExceptT ShelleyTxCmdError IO ()
-runTxSubmit (AnyConsensusModeParams cModeParams) network txFile = do
+runTxSubmit (AnyConsensusModeParams cModeParams) network txFilePath = do
+
     SocketPath sockPath <- firstExceptT ShelleyTxCmdSocketEnvError
                              $ newExceptT readEnvSocketPath
 
+    txFile <- liftIO $ fileOrPipe txFilePath
     InAnyCardanoEra era tx <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                                 $ readFileTx txFile
     let cMode = AnyConsensusMode $ consensusModeOnly cModeParams
     eraInMode <- hoistMaybe
-                   (ShelleyTxCmdEraConsensusModeMismatch (Just txFile) cMode (AnyCardanoEra era))
+                   (ShelleyTxCmdEraConsensusModeMismatch (Just txFilePath) cMode (AnyCardanoEra era))
                    (toEraInMode era $ consensusModeOnly cModeParams)
     let txInMode = TxInMode tx eraInMode
         localNodeConnInfo = LocalNodeConnectInfo
@@ -1088,11 +1092,12 @@ runTxCalculateMinFee
   -> TxShelleyWitnessCount
   -> TxByronWitnessCount
   -> ExceptT ShelleyTxCmdError IO ()
-runTxCalculateMinFee (TxBodyFile txbodyFile) nw protocolParamsSourceSpec
+runTxCalculateMinFee (TxBodyFile txbodyFilePath) nw protocolParamsSourceSpec
                      (TxInCount nInputs) (TxOutCount nOutputs)
                      (TxShelleyWitnessCount nShelleyKeyWitnesses)
                      (TxByronWitnessCount nByronKeyWitnesses) = do
 
+    txbodyFile <- liftIO $ fileOrPipe txbodyFilePath
     unwitnessed <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                      $ readFileTxBody txbodyFile
     pparams <- firstExceptT ShelleyTxCmdProtocolParamsError
@@ -1235,7 +1240,8 @@ runTxGetTxId :: InputTxBodyOrTxFile -> ExceptT ShelleyTxCmdError IO ()
 runTxGetTxId txfile = do
     InAnyCardanoEra _era txbody <-
       case txfile of
-        InputTxBodyFile (TxBodyFile txbodyFile) -> do
+        InputTxBodyFile (TxBodyFile txbodyFilePath) -> do
+          txbodyFile <- liftIO $ fileOrPipe txbodyFilePath
           unwitnessed <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                            $ readFileTxBody txbodyFile
           case unwitnessed of
@@ -1243,7 +1249,8 @@ runTxGetTxId txfile = do
             IncompleteCddlFormattedTx (InAnyCardanoEra era tx) ->
               return (InAnyCardanoEra era (getTxBody tx))
 
-        InputTxFile (TxFile txFile) -> do
+        InputTxFile (TxFile txFilePath) -> do
+          txFile <- liftIO $ fileOrPipe txFilePath
           InAnyCardanoEra era tx <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                                       $ readFileTx txFile
           return . InAnyCardanoEra era $ getTxBody tx
@@ -1252,7 +1259,8 @@ runTxGetTxId txfile = do
 
 runTxView :: InputTxBodyOrTxFile -> ExceptT ShelleyTxCmdError IO ()
 runTxView = \case
-  InputTxBodyFile (TxBodyFile txbodyFile) -> do
+  InputTxBodyFile (TxBodyFile txbodyFilePath) -> do
+    txbodyFile <- liftIO $ fileOrPipe txbodyFilePath
     unwitnessed <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                      $ readFileTxBody txbodyFile
     InAnyCardanoEra era txbody <-
@@ -1264,7 +1272,8 @@ runTxView = \case
     -- In the case of a transaction body, we can simply call makeSignedTransaction []
     -- to get a transaction which allows us to reuse friendlyTxBS!
     liftIO $ BS.putStr $ friendlyTxBodyBS era txbody
-  InputTxFile (TxFile txFile) -> do
+  InputTxFile (TxFile txFilePath) -> do
+    txFile <- liftIO $ fileOrPipe txFilePath
     InAnyCardanoEra era tx <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                                 $ readFileTx txFile
     liftIO $ BS.putStr $ friendlyTxBS era tx
@@ -1280,7 +1289,8 @@ runTxCreateWitness
   -> Maybe NetworkId
   -> OutputFile
   -> ExceptT ShelleyTxCmdError IO ()
-runTxCreateWitness (TxBodyFile txbodyFile) witSignData mbNw (OutputFile oFile) = do
+runTxCreateWitness (TxBodyFile txbodyFilePath) witSignData mbNw (OutputFile oFile) = do
+  txbodyFile <- liftIO $ fileOrPipe txbodyFilePath
   unwitnessed <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                    $ readFileTxBody txbodyFile
   case unwitnessed of
@@ -1331,7 +1341,8 @@ runTxSignWitness
   -> [WitnessFile]
   -> OutputFile
   -> ExceptT ShelleyTxCmdError IO ()
-runTxSignWitness (TxBodyFile txbodyFile) witnessFiles (OutputFile oFp) = do
+runTxSignWitness (TxBodyFile txbodyFilePath) witnessFiles (OutputFile oFp) = do
+    txbodyFile <- liftIO $ fileOrPipe txbodyFilePath
     unwitnessed <- firstExceptT ShelleyTxCmdCddlError . newExceptT
                      $ readFileTxBody txbodyFile
     case unwitnessed of

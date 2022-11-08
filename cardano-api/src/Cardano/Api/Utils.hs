@@ -133,4 +133,3 @@ renderEra (AnyCardanoEra AllegraEra) = "Allegra"
 renderEra (AnyCardanoEra MaryEra)    = "Mary"
 renderEra (AnyCardanoEra AlonzoEra)  = "Alonzo"
 renderEra (AnyCardanoEra BabbageEra) = "Babbage"
-

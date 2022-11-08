@@ -15,6 +15,7 @@ module Cardano.Api.SerialiseLedgerCddl
   -- * Reading one of several transaction or
   -- key witness types
   , readFileTextEnvelopeCddlAnyOf
+  , deserialiseFromTextEnvelopeCddlAnyOf
 
   , writeTxFileTextEnvelopeCddl
   , writeTxWitnessFileTextEnvelopeCddl
@@ -36,7 +37,6 @@ import qualified Data.Aeson as Aeson
 import           Data.Aeson.Encode.Pretty (Config (..), defConfig, encodePretty', keyOrder)
 import           Data.Bifunctor (first)
 import           Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List as List
@@ -52,6 +52,7 @@ import           Cardano.Api.Error
 import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.SerialiseCBOR
 import           Cardano.Api.Tx
+import           Cardano.Api.Utils
 
 
 -- Why have we gone this route? The serialization format of `TxBody era`
@@ -319,6 +320,6 @@ readTextEnvelopeCddlFromFile
 readTextEnvelopeCddlFromFile path =
   runExceptT $ do
     bs <- handleIOExceptT (FileIOError path) $
-            BS.readFile path
+            readFileBlocking path
     firstExceptT (FileError path . TextEnvelopeCddlAesonDecodeError path)
       . hoistEither $ Aeson.eitherDecodeStrict' bs
