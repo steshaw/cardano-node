@@ -1,4 +1,8 @@
-module Parsers where
+module Testnet.Parsers
+(
+  commands
+  )
+where
 
 import           Data.Function
 import           Data.Monoid

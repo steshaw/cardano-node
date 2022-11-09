@@ -38,32 +38,28 @@ import qualified Hedgehog.Extras.Test.File as H
 import qualified Hedgehog.Extras.Test.Process as H
 import qualified System.Directory as IO
 import qualified System.Info as SYS
-import           Testnet ( TestnetOptions (BabbageOnlyTestnetOptions), testnet)
-import           Testnet.Babbage (BabbageTestnetOptions (..))
-import qualified Testnet.Babbage as TC
-import qualified Testnet.Conf as H
-import qualified Util.Assert as H
-import qualified Util.Base as H
-import qualified Util.Process as H
-import qualified Util.Runtime as TR
-import           Util.Runtime (LeadershipSlot (..))
+
+import           Cardano.Testnet
+import           Testnet.Util.Assert
+import           Testnet.Util.Process
+import           Testnet.Util.Runtime
 
 hprop_leadershipSchedule :: Property
-hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo" $ \tempAbsBasePath' -> do
+hprop_leadershipSchedule = integration . H.runFinallies . H.workspace "alonzo" $ \tempAbsBasePath' -> do
   H.note_ SYS.os
   base <- H.note =<< H.noteIO . IO.canonicalizePath =<< H.getProjectBase
   configurationTemplate <- H.noteShow $ base </> "configuration/defaults/byron-mainnet/configuration.yaml"
-  conf@H.Conf { H.tempBaseAbsPath, H.tempAbsPath } <- H.noteShowM $
-    H.mkConf (H.ProjectBase base) (H.YamlFilePath configurationTemplate) tempAbsBasePath' Nothing
+  conf@Conf { tempBaseAbsPath, tempAbsPath } <- H.noteShowM $
+    mkConf (ProjectBase base) (YamlFilePath configurationTemplate) tempAbsBasePath' Nothing
 
   work <- H.note $ tempAbsPath </> "work"
   H.createDirectoryIfMissing work
 
   let
-    testnetOptions = BabbageOnlyTestnetOptions $ TC.defaultTestnetOptions
-      { nodeLoggingFormat = TR.NodeLoggingFormatAsJson
+    testnetOptions = BabbageOnlyTestnetOptions $ babbageDefaultTestnetOptions
+      { babbageNodeLoggingFormat = NodeLoggingFormatAsJson
       }
-  tr@TR.TestnetRuntime
+  tr@TestnetRuntime
     { testnetMagic
     , poolNodes
     -- , wallets
@@ -74,7 +70,7 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
 
   env <- H.evalIO getEnvironment
 
-  poolSprocket1 <- H.noteShow $ TR.nodeSprocket $ TR.poolRuntime poolNode1
+  poolSprocket1 <- H.noteShow $ nodeSprocket $ poolRuntime poolNode1
 
   execConfig <- H.noteShow H.ExecConfig
     { H.execConfigEnv = Last $ Just $
@@ -88,9 +84,9 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
 
   tipDeadline <- H.noteShowM $ DTC.addUTCTime 180 <$> H.noteShowIO DTC.getCurrentTime
 
-  H.assertByDeadlineMCustom "stdout does not contain \"until genesis start time\"" tipDeadline $ do
+  assertByDeadlineMCustom "stdout does not contain \"until genesis start time\"" tipDeadline $ do
     H.threadDelay 5000000
-    void $ H.execCli' execConfig
+    void $ execCli' execConfig
       [ "query", "tip"
       , "--testnet-magic", show @Int testnetMagic
       , "--out-file", work </> "current-tip.json"
@@ -106,12 +102,12 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
     H.note_ $ "Current Epoch: " <> show currEpoch
     return (currEpoch > 2)
 
-  stakePoolId <- filter ( /= '\n') <$> H.execCli
+  stakePoolId <- filter ( /= '\n') <$> execCli
     [ "stake-pool", "id"
-    , "--cold-verification-key-file", TR.poolNodeKeysColdVkey $ TR.poolKeys poolNode1
+    , "--cold-verification-key-file", poolNodeKeysColdVkey $ poolKeys poolNode1
     ]
 
-  let poolVrfSkey = TR.poolNodeKeysVrfSkey $ TR.poolKeys poolNode1
+  let poolVrfSkey = poolNodeKeysVrfSkey $ poolKeys poolNode1
 
   id do
     scheduleFile <- H.noteTempFile tempAbsPath "schedule.log"
@@ -119,10 +115,10 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
     leadershipScheduleDeadline <- H.noteShowM $ DTC.addUTCTime 180 <$> H.noteShowIO DTC.getCurrentTime
 
     H.byDeadlineM 5 leadershipScheduleDeadline $ do
-      void $ H.execCli' execConfig
+      void $ execCli' execConfig
         [ "query", "leadership-schedule"
         , "--testnet-magic", show @Int testnetMagic
-        , "--genesis", TC.shelleyGenesisFile tr
+        , "--genesis", shelleyGenesisFile tr
         , "--stake-pool-id", stakePoolId
         , "--vrf-signing-key-file", poolVrfSkey
         , "--out-file", scheduleFile
@@ -137,8 +133,8 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
 
     leadershipDeadline <- H.noteShowM $ DTC.addUTCTime 90 <$> H.noteShowIO DTC.getCurrentTime
 
-    H.assertByDeadlineMCustom "Retrieve actual slots" leadershipDeadline $ do
-      leaderSlots <- H.getRelevantLeaderSlots (TR.poolNodeStdout poolNode1) (minimum expectedLeadershipSlotNumbers)
+    assertByDeadlineMCustom "Retrieve actual slots" leadershipDeadline $ do
+      leaderSlots <- getRelevantLeaderSlots (poolNodeStdout poolNode1) (minimum expectedLeadershipSlotNumbers)
       maxSlotExpected <- H.noteShow $ maximum expectedLeadershipSlotNumbers
       if L.null leaderSlots
         then return False
@@ -146,7 +142,7 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
           maxActualSlot <- H.noteShow $ maximum leaderSlots
           return $ maxActualSlot >= maxSlotExpected
 
-    leaderSlots <- H.getRelevantLeaderSlots (TR.poolNodeStdout poolNode1) (minimum expectedLeadershipSlotNumbers)
+    leaderSlots <- getRelevantLeaderSlots (poolNodeStdout poolNode1) (minimum expectedLeadershipSlotNumbers)
 
     H.noteShow_ expectedLeadershipSlotNumbers
     H.noteShow_ leaderSlots
@@ -160,10 +156,10 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
     leadershipScheduleDeadline <- H.noteShowM $ DTC.addUTCTime 180 <$> H.noteShowIO DTC.getCurrentTime
 
     H.byDeadlineM 5 leadershipScheduleDeadline $ do
-      void $ H.execCli' execConfig
+      void $ execCli' execConfig
         [ "query", "leadership-schedule"
         , "--testnet-magic", show @Int testnetMagic
-        , "--genesis", TC.shelleyGenesisFile tr
+        , "--genesis", shelleyGenesisFile tr
         , "--stake-pool-id", stakePoolId
         , "--vrf-signing-key-file", poolVrfSkey
         , "--out-file", scheduleFile
@@ -178,8 +174,8 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
 
     leadershipDeadline <- H.noteShowM $ DTC.addUTCTime 90 <$> H.noteShowIO DTC.getCurrentTime
 
-    H.assertByDeadlineMCustom "Retrieve actual slots" leadershipDeadline $ do
-      leaderSlots <- H.getRelevantLeaderSlots (TR.poolNodeStdout poolNode1) (minimum expectedLeadershipSlotNumbers)
+    assertByDeadlineMCustom "Retrieve actual slots" leadershipDeadline $ do
+      leaderSlots <- getRelevantLeaderSlots (poolNodeStdout poolNode1) (minimum expectedLeadershipSlotNumbers)
       maxSlotExpected <- H.noteShow $ maximum expectedLeadershipSlotNumbers
       if L.null leaderSlots
         then return False
@@ -187,7 +183,7 @@ hprop_leadershipSchedule = H.integration . H.runFinallies . H.workspace "alonzo"
           maxActualSlot <- H.noteShow $ maximum leaderSlots
           return $ maxActualSlot >= maxSlotExpected
 
-    leaderSlots <- H.getRelevantLeaderSlots (TR.poolNodeStdout poolNode1) (minimum expectedLeadershipSlotNumbers)
+    leaderSlots <- getRelevantLeaderSlots (poolNodeStdout poolNode1) (minimum expectedLeadershipSlotNumbers)
 
     H.noteShow_ expectedLeadershipSlotNumbers
     H.noteShow_ leaderSlots
