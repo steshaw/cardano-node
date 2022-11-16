@@ -1,5 +1,7 @@
+cabal-version:         2.2
+
 name:                  tx-generator
-version:               2.4
+version:               2.5
 description:           The transaction generator for cardano node
 author:                IOHK
 maintainer:            operations@iohk.io
@@ -8,9 +10,12 @@ license-files:
   LICENSE
   NOTICE
 build-type:            Simple
-cabal-version:         >= 2.0
 extra-source-files:    README.md
 data-files:            data/protocol-parameters.json
+                       data/protocol-parameters-v8.json
+                       data/loop.redeemer.json
+                       data/ecdsa-secp256k1-loop.redeemer.json
+                       data/schnorr-secp256k1-loop.redeemer.json
 
 common project-config
   if os(windows)
@@ -43,7 +48,6 @@ library
                        Cardano.Benchmarking.Script.Aeson
                        Cardano.Benchmarking.Script.Core
                        Cardano.Benchmarking.Script.Env
-                       Cardano.Benchmarking.Script.NodeConfig
                        Cardano.Benchmarking.Script.Selftest
                        Cardano.Benchmarking.Script.Types
                        Cardano.Benchmarking.TpsThrottle
@@ -51,7 +55,6 @@ library
                        Cardano.Benchmarking.Types
                        Cardano.Benchmarking.Version
                        Cardano.Benchmarking.Wallet
-                       Cardano.Benchmarking.PlutusExample
 
                        Cardano.TxGenerator.Fund
                        Cardano.TxGenerator.FundQueue
@@ -61,6 +64,7 @@ library
                        Cardano.TxGenerator.Setup.NixService
                        Cardano.TxGenerator.Setup.NodeConfig
                        Cardano.TxGenerator.Setup.Plutus
+                       Cardano.TxGenerator.PlutusContext
                        Cardano.TxGenerator.Setup.SigningKey
                        Cardano.TxGenerator.Types
                        Cardano.TxGenerator.Tx
@@ -68,7 +72,6 @@ library
                        Cardano.TxGenerator.UTxO
 
                        Cardano.TxGenerator.Internal.Orphans
-
 
   other-modules:       Cardano.TxGenerator.Internal.Fifo
                        -- Cardano.TxGenerator.Internal.Orphans
@@ -114,6 +117,7 @@ library
                      , ouroboros-network
                      , ouroboros-network-framework
                      , plutus-ledger-api
+                     , plutus-tx
                      , random
                      , serialise
                      , streaming
@@ -176,6 +180,9 @@ test-suite tx-generator-apitest
                      , transformers
                      , transformers-except
                      , tx-generator
+
+  other-modules:     Paths_tx_generator
+
                      
 test-suite tx-generator-test
   hs-source-dirs:       test
