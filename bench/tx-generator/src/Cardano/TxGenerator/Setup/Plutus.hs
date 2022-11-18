@@ -10,7 +10,8 @@ module Cardano.TxGenerator.Setup.Plutus
        )
        where
 
-import qualified Data.Map as Map
+import           Data.Map as Map (Map, lookup, toAscList)
+import           Data.Text (Text)
 
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Except.Extra
@@ -22,8 +23,8 @@ import           Cardano.Api.Shelley (PlutusScript (..), ProtocolParameters (..)
                    protocolParamCostModels, toPlutusData)
 import           Cardano.Ledger.Alonzo.TxInfo (exBudgetToExUnits)
 
-import qualified Plutus.V1.Ledger.Api as Plutus
-import           Plutus.V1.Ledger.Contexts (ScriptContext (..), ScriptPurpose (..), TxInfo (..),
+import qualified PlutusLedgerApi.V1 as Plutus
+import           PlutusLedgerApi.V1.Contexts (ScriptContext (..), ScriptPurpose (..), TxInfo (..),
                    TxOutRef (..))
 
 import           Cardano.TxGenerator.Types
@@ -49,7 +50,7 @@ preExecutePlutusScript protocolParameters (PlutusScript _ (PlutusScriptSerialise
     CostModel costModel <- hoistMaybe (TxGenError "preExecutePlutusScript: costModel unavailable") $
       AnyPlutusScriptVersion PlutusScriptV1 `Map.lookup` protocolParamCostModels protocolParameters
     evaluationContext <- firstExceptT PlutusError $
-      Plutus.mkEvaluationContext costModel
+      Plutus.mkEvaluationContext (flattenCostModel costModel)
 
     let
       (majVer, minVer) = protocolParamProtocolVersion protocolParameters
@@ -67,6 +68,12 @@ preExecutePlutusScript protocolParameters (PlutusScript _ (PlutusScriptSerialise
       exBudgetToExUnits exBudget
     return $ fromAlonzoExUnits x
   where
+    -- TODO: drop flattenCostModel when newtype CostModel in Cardano.Api.ProtocolParameters
+    -- might be changed to the flattened representation rather than the key-value map.
+    -- Context: The flattened list is sorted in the order given by `ParamName` enum, which is the lexicographic ordering.
+    flattenCostModel :: Map Text Integer -> [Integer]
+    flattenCostModel = map snd . Map.toAscList
+
     dummyContext :: ScriptContext
     dummyContext = ScriptContext dummyTxInfo (Spending dummyOutRef)
 

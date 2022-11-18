@@ -51,7 +51,6 @@ library
                        Cardano.Benchmarking.Types
                        Cardano.Benchmarking.Version
                        Cardano.Benchmarking.Wallet
-                       Cardano.Benchmarking.PlutusExample
 
                        Cardano.TxGenerator.Fund
                        Cardano.TxGenerator.FundQueue
