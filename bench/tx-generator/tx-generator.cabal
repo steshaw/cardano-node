@@ -103,6 +103,7 @@ library
                      , generic-monoid
                      , ghc-prim
                      , io-classes
+                     , mtl
                      , network
                      , network-mux
                      , optparse-applicative-fork
