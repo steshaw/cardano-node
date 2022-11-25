@@ -691,11 +691,13 @@ module Cardano.Api (
     SlotsToEpochEnd(..),
     slotToEpoch,
 
-    -- * Node socket related
+    -- * environment related
     EnvSocketError(..),
     SocketPath(..),
     readEnvSocketPath,
     renderEnvSocketError,
+    EnvNetworkIdError(..),
+    readEnvNetworkId,
 
     NodeToClientVersion(..),
 
