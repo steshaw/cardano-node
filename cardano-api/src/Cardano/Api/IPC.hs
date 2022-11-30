@@ -574,7 +574,7 @@ mapLocalTxMonitoringClient convTxid convTx ltxmc =
 
 data AcquiringFailure = AFPointTooOld
                       | AFPointNotOnChain
-                      deriving Show
+                      deriving (Eq, Show)
 
 toAcquiringFailure :: Net.Query.AcquireFailure -> AcquiringFailure
 toAcquiringFailure AcquireFailurePointTooOld = AFPointTooOld

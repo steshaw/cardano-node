@@ -14,6 +14,8 @@
 
 - **Breaking change** - Reduce exposed modules in cardano-api ([PR4546](https://github.com/input-output-hk/cardano-node/pull/4546))
 
+- **Breaking change** Change return type of `queryNodeLocalState` to new `AcquiringFailure` type.
+
 ### Bugs
 
 - Allow reading text envelopes from pipes ([PR 4384](https://github.com/input-output-hk/cardano-node/pull/4384))
