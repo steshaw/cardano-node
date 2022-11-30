@@ -30,6 +30,7 @@ module Cardano.Api.Block (
     EpochNo(..),
     toConsensusPoint,
     fromConsensusPoint,
+    fromConsensusPointHF,
     toConsensusPointInMode,
     fromConsensusPointInMode,
     toConsensusPointHF,
