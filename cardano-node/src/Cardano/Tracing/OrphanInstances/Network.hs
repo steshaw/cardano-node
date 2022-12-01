@@ -1042,7 +1042,7 @@ instance (Show ntnAddr, Show ntcAddr) => ToObject (ND.DiffusionTracer ntnAddr nt
     , "path" .= String (pack (show exception))
     ]
   toObject _verb (ND.SystemdSocketConfiguration config) = mconcat
-    [ "kand" .= String "SystemdSocketConfiguration"
+    [ "kind" .= String "SystemdSocketConfiguration"
     , "message" .= String (pack (show config))
     ]
 
