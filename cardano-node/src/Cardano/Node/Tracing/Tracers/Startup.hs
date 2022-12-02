@@ -137,7 +137,8 @@ namesStartupInfo = \case
   NetworkConfigLegacy {}                    -> ["NetworkConfigLegacy"]
   P2PWarning {}                             -> ["P2PWarning"]
   P2PWarningDevelopementNetworkProtocols {} -> ["P2PWarningDevelopementNetworkProtocols"]
-  WarningDevelopmentNetworkProtocols {}     -> ["WarningDevelopmentNetworkProtocols"]
+  WarningDevelopmentNodeToNodeVersions {}   -> ["WarningDevelopmentNodeToNodeVersions"]
+  WarningDevelopmentNodeToClientVersions {} -> ["WarningDevelopmentNodeToClientVersions"]
   BICommon {}                               -> ["Common"]
   BIShelley {}                              -> ["ShelleyBased"]
   BIByron {}                                -> ["Byron"]
@@ -242,11 +243,15 @@ instance ( Show (BlockNodeToNodeVersion blk)
   forMachine _dtal P2PWarningDevelopementNetworkProtocols =
       mconcat [ "kind" .= String "P2PWarningDevelopementNetworkProtocols"
                , "message" .= String p2pWarningDevelopmentNetworkProtocolsMessage ]
-  forMachine _ver (WarningDevelopmentNetworkProtocols ntnVersions ntcVersions) =
-      mconcat [ "kind" .= String "WarningDevelopmentNetworkProtocols"
+  forMachine _ver (WarningDevelopmentNodeToNodeVersions ntnVersions) =
+      mconcat [ "kind" .= String "WarningDevelopmentNodeToNodeVersions"
                , "message" .= String "enabled development network protocols"
-               , "nodeToNodeDevelopmentVersions" .= String (showT ntnVersions)
-               , "nodeToClientDevelopmentVersions" .= String (showT ntcVersions)
+               , "versions" .= String (showT ntnVersions)
+               ]
+  forMachine _ver (WarningDevelopmentNodeToClientVersions ntcVersions) =
+      mconcat [ "kind" .= String "WarningDevelopmentNodeToClientVersions"
+               , "message" .= String "enabled development network protocols"
+               , "versions" .= String (showT ntcVersions)
                ]
   forMachine _dtal (BINetwork BasicInfoNetwork {..}) =
       mconcat [ "kind" .= String "BasicInfoNetwork"
@@ -350,10 +355,12 @@ ppStartupInfoTrace P2PWarning = p2pWarningMessage
 ppStartupInfoTrace P2PWarningDevelopementNetworkProtocols =
     p2pWarningDevelopmentNetworkProtocolsMessage
 
-ppStartupInfoTrace (WarningDevelopmentNetworkProtocols ntnVersions ntcVersions) =
-     "enabled development network protocols: "
+ppStartupInfoTrace (WarningDevelopmentNodeToNodeVersions ntnVersions) =
+     "enabled development node-to-node versions: "
   <> showT ntnVersions
-  <> " "
+
+ppStartupInfoTrace (WarningDevelopmentNodeToClientVersions ntcVersions) =
+     "enabled development node-to-client versions: "
   <> showT ntcVersions
 
 ppStartupInfoTrace (BINetwork BasicInfoNetwork {..}) =

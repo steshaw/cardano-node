@@ -108,9 +108,15 @@ data StartupTrace blk =
   --
   | P2PWarningDevelopementNetworkProtocols
 
-  -- | Warn when 'TestEnableDevelopmentNetworkProtocols' is set.
+  -- | Warn when 'TestEnableDevelopmentNetworkProtocols' is set and affects
+  -- node-to-node protocol.
   --
-  | WarningDevelopmentNetworkProtocols [NodeToNodeVersion] [NodeToClientVersion]
+  | WarningDevelopmentNodeToNodeVersions [NodeToNodeVersion]
+
+  -- | Warn when 'TestEnableDevelopmentNetworkProtocols' is set and affects
+  -- node-to-client protocol.
+  --
+  | WarningDevelopmentNodeToClientVersions [NodeToClientVersion]
 
   | BICommon BasicInfoCommon
   | BIShelley BasicInfoShelleyBased
@@ -124,7 +130,8 @@ severityStartupTracer (NetworkConfigUpdateError _) = Error
 severityStartupTracer NetworkConfigUpdateUnsupported = Warning
 severityStartupTracer P2PWarning = Warning
 severityStartupTracer P2PWarningDevelopementNetworkProtocols = Warning
-severityStartupTracer WarningDevelopmentNetworkProtocols {} = Warning
+severityStartupTracer WarningDevelopmentNodeToNodeVersions {} = Warning
+severityStartupTracer WarningDevelopmentNodeToClientVersions {} = Warning
 severityStartupTracer _ = Info
 
 data BasicInfoCommon = BasicInfoCommon {
