@@ -32,6 +32,10 @@ library
                       Control.Tracer.Arrow
                       Control.Tracer
 
+                      Generics.SOP.Mapping
+                      Generics.SOP.Some
+                      Generics.SOP.Traversal
+
   default-language:   Haskell2010
   default-extensions: OverloadedStrings
   build-depends:      base >=4.12 && <5
@@ -44,12 +48,15 @@ library
                       , ekg
                       , ekg-core
                       , ekg-forward == 0.3.0
+                      , fclabels
+                      , generics-sop
                       , hostname
                       , network
                       , optparse-applicative-fork
                       , ouroboros-network
                       , ouroboros-network-framework
                       , serialise
+                      , sop-core
                       , stm
                       , text
                       , time
