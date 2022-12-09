@@ -25,7 +25,7 @@ import qualified Codec.Binary.Bech32 as Bech32
 
 import           Cardano.Api.Error
 import           Cardano.Api.HasTypeProxy
-import           Cardano.Api.SerialiseRaw
+import Cardano.Api.SerialiseRaw ( SerialiseAsRawBytes(..) )
 import           Cardano.Api.Utils
 
 
