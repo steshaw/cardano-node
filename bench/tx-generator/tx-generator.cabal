@@ -1,3 +1,4 @@
+cabal-version:         3.0
 name:                  tx-generator
 version:               2.4
 description:           The transaction generator for cardano node
@@ -8,7 +9,6 @@ license-files:
   LICENSE
   NOTICE
 build-type:            Simple
-cabal-version:         >= 2.0
 extra-source-files:    README.md
 data-files:            data/protocol-parameters.json
 
