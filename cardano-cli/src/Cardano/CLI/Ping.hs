@@ -69,7 +69,7 @@ runPingCmd options = do
         )
 
   laid <- liftIO . async $ logger msgQueue $ pingCmdJson options
-  caids <- forM addresses $ liftIO . async . pingClient (Tracer $ doLog msgQueue) options versions
+  caids <- forM addresses $ liftIO . async . pingClient (Tracer $ doLog msgQueue) (Tracer doErrLog) options versions
   res <- L.zip addresses <$> mapM (liftIO . waitCatch) caids
   liftIO $ doLog msgQueue LogEnd
   liftIO $ wait laid
@@ -89,6 +89,9 @@ runPingCmd options = do
 
     doLog :: StrictTMVar IO LogMsg -> LogMsg -> IO ()
     doLog msgQueue msg = atomically $ putTMVar msgQueue msg
+
+    doErrLog :: String -> IO ()
+    doErrLog msg = IO.hPutStrLn IO.stderr msg
 
 renderPingClientCmdError :: PingClientCmdError -> Text
 renderPingClientCmdError = \case

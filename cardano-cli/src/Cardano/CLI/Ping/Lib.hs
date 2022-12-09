@@ -58,7 +58,6 @@ import qualified Codec.CBOR.Encoding as CBOR
 import qualified Codec.CBOR.Read as CBOR
 import qualified Codec.CBOR.Write as CBOR
 import qualified Control.Monad.Class.MonadTimer as MT
-import qualified Data.ByteString.Char8 as BS.Char
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Lazy.Char8 as LBSC
 import qualified Data.List as L
@@ -369,8 +368,8 @@ toStatPoint ts host cookie sample td =
     stddev' :: Double
     stddev' = fromMaybe 0 (stddev td)
 
-pingClient :: Tracer IO LogMsg -> PingCmd -> [NodeVersion] -> AddrInfo -> IO ()
-pingClient tracer PingCmd{pingCmdQuiet, pingCmdJson, pingCmdCount} versions peer = bracket
+pingClient :: Tracer IO LogMsg -> Tracer IO String -> PingCmd -> [NodeVersion] -> AddrInfo -> IO ()
+pingClient stdout stderr PingCmd{pingCmdQuiet, pingCmdJson, pingCmdCount} versions peer = bracket
   (Socket.socket (Socket.addrFamily peer) Socket.Stream Socket.defaultProtocol)
   Socket.close
   (\sd -> withTimeoutSerial $ \timeoutfn -> do
@@ -423,7 +422,7 @@ pingClient tracer PingCmd{pingCmdQuiet, pingCmdJson, pingCmdCount} versions peer
     toSample t_e t_s = realToFrac $ diffTime t_e t_s
 
     eprint :: String -> IO ()
-    eprint = BS.Char.hPutStr IO.stderr . BS.Char.pack
+    eprint = traceWith stderr
 
     nextMsg ::  MuxBearer IO -> TimeoutFn IO -> MiniProtocolNum -> IO (LBS.ByteString, Time)
     nextMsg bearer timeoutfn ptclNum = do
@@ -456,8 +455,7 @@ pingClient tracer PingCmd{pingCmdQuiet, pingCmdJson, pingCmdCount} versions peer
           now <- getCurrentTime
           let point = toStatPoint now peerStr cookie16 rtt td'
           if pingCmdJson
-            then traceWith tracer $ LogMsg (encode point)
-            else traceWith tracer $ LogMsg $ LBSC.pack $ show point <> "\n"
-          IO.hFlush IO.stdout
+            then traceWith stdout $ LogMsg (encode point)
+            else traceWith stdout $ LogMsg $ LBSC.pack $ show point <> "\n"
           MT.threadDelay 1
           keepAlive bearer timeoutfn peerStr version td' (cookie + 1)
