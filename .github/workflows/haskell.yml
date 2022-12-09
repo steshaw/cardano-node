@@ -24,7 +24,7 @@ jobs:
         # number instances is a good way to trigger flaky build failures
         n: [1]
 
-        ghc: ["8.10.7"]
+        ghc: ["8.10.7", "9.2.4"]
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     env:
@@ -33,7 +33,7 @@ jobs:
       # OpenSSL is installed in a non-standard location in MacOS. See
       # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-11-Readme.md
       PKG_CONFIG_PATH: ${{ (matrix.os == 'macos-latest' && '/usr/lib/pkgconfig:/usr/local/opt/openssl@1.1/lib/pkgconfig') || (matrix.os == 'ubuntu-latest' && '/usr/lib/pkgconfig:/usr/local/lib/pkgconfig') || '' }}
-      
+
       # we need the LD_LIBRARY_PATH env var here because we ended up installing libsecp256k1 into /usr/local,
       # pkg-config, *does* return the proper location, but the library does not appear to be properly referenced.
       # FIXME: this is arguably a bug, and pkg-config should return the right values!
@@ -55,12 +55,12 @@ jobs:
             automake `
             libtool `
             make
-  
+
      # this seems to break something. It _must_ come after the pacman setup
      # above. It appears as if PATHEXT is set _after_ ghcup install ghc/cabal, and
      # as such we'd need pacman.exe instead.
     - name: Setup Haskell
-      run: |        
+      run: |
         # Use GHCUP to manage ghc/cabal
         ghcup install ghc --set ${{ matrix.ghc }}
         ghcup install cabal --set 3.6.2.0
@@ -69,7 +69,7 @@ jobs:
         cabal --version
 
     - name: "WIN: fixup cabal config"
-      if: runner.os == 'Windows'        
+      if: runner.os == 'Windows'
       run: |
         # make sure cabal knows about msys64, and mingw64 tools. Not clear why C:/cabal/config is empty
         # and C:/cabal doesn't even exist.  The ghcup bootstrap file should have create it in the image:
@@ -99,7 +99,7 @@ jobs:
       id: win-setup-haskell
       if: runner.os == 'Windows'
       shell: bash
-      run: echo "cabal-store=C:\\cabal\\store" >> $GITHUB_OUTPUT   
+      run: echo "cabal-store=C:\\cabal\\store" >> $GITHUB_OUTPUT
 
     - name: Set cache version
       run: echo "CACHE_VERSION=grFfw7r" >> $GITHUB_ENV
