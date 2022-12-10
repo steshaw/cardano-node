@@ -135,7 +135,7 @@ pPing = PingCmd
         <>  Opt.help "Unix socket, e.g. file.socket."
         )
       )
-  <*> Opt.option Opt.auto
+  <*> Opt.strOption
       (   Opt.long "port"
       <>  Opt.short 'p'
       <>  Opt.metavar "PORT"

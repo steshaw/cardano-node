@@ -394,8 +394,8 @@ pingClient stdout stderr PingCmd{pingCmdQuiet, pingCmdJson, pingCmdCount} versio
     unless pingCmdQuiet $ printf "%s handshake rtt: %s\n" peerStr (show $ diffTime t1_e t1_s)
 
     case CBOR.deserialiseFromBytes handshakeDec msg of
-      Left err -> eprint $ printf "%s Decoding error %s\n" peerStr (show err)
-      Right (_, Left err) -> eprint $ printf "%s Protocol error %s\n" peerStr (show err)
+      Left err -> eprint $ printf "%s Decoding error %s" peerStr (show err)
+      Right (_, Left err) -> eprint $ printf "%s Protocol error %s" peerStr (show err)
       Right (_, Right version) -> do
         unless pingCmdQuiet $ printf "%s Negotiated version %s\n" peerStr (show version)
         keepAlive bearer timeoutfn peerStr version (tdigest []) 0
@@ -446,10 +446,10 @@ pingClient stdout stderr PingCmd{pingCmdQuiet, pingCmdJson, pingCmdCount} versio
       let rtt = toSample t_e t_s
           td' = insert rtt td
       case CBOR.deserialiseFromBytes (keepAliveRspDec version) msg of
-        Left err -> eprint $ printf "%s keepalive decoding error %s\n" peerStr (show err)
-        Right (_, Left err) -> eprint $ printf "%s keepalive protocol error %s\n" peerStr (show err)
+        Left err -> eprint $ printf "%s keepalive decoding error %s" peerStr (show err)
+        Right (_, Left err) -> eprint $ printf "%s keepalive protocol error %s" peerStr (show err)
         Right (_, Right cookie') -> do
-          when (cookie' /= cookie16) $ eprint $ printf "%s cookie missmatch %d /= %d\n"
+          when (cookie' /= cookie16) $ eprint $ printf "%s cookie missmatch %d /= %d"
             peerStr cookie' cookie
 
           now <- getCurrentTime
