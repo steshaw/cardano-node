@@ -23,6 +23,7 @@ in rec {
   tasks = let
     common = {
       config,
+      lib,
       ...
     }: {
       preset = {
@@ -41,8 +42,8 @@ in rec {
         extra-system-features = kvm
       '';
 
-      memory = 1024 * 32;
-      nomad.resources.cpu = 10000;
+      memory = lib.mkDefault (1024 * 32);
+      nomad.resources.cpu = lib.mkDefault 10000;
     };
 
     # the attribute name in `hydraJobs` for the current system
@@ -57,22 +58,44 @@ in rec {
     {
       "ci/push" = {lib, ...} @ args: {
         imports = [common];
-
-        command.text = ''
-          nix build -L \
-            ${flakeUrl args}#hydraJobs.${lib.escapeShellArg os}.required \
-            ${flakeUrl args}#hydraJobs.cardano-deployment
-        '';
+        after = ["ci/required" "ci/deployment"];
       };
 
       "ci/pr" = {lib, ...} @ args: {
         imports = [common];
+        after = ["ci/required" "ci/deployment" "ci/pr/qa-tests"];
+      };
+
+      "ci/required" = {lib, ...} @ args: {
+        imports = [common];
 
         command.text = ''
           nix build -L \
-            ${flakeUrl args}#hydraJobsPr.${lib.escapeShellArg os}.required \
+            ${flakeUrl args}#hydraJobsPr.${lib.escapeShellArg os}.required
+        '';
+      };
+
+      "ci/deployment" = {lib, ...} @ args: {
+        imports = [common];
+        after = ["ci/required"];
+
+        command.text = ''
+          nix build -L \
             ${flakeUrl args}#hydraJobsPr.cardano-deployment
         '';
+      };
+
+      "ci/pr/qa-tests" = {lib, ...} @ args: {
+        imports = [common];
+        after = ["ci/required"];
+
+        command.text = ''
+          nix run -L \
+            ${flakeUrl args}#qa-tests/pr
+        '';
+
+        memory = 1024 * 64;
+        nomad.resources.cpu = 40000;
       };
     };
 

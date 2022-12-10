@@ -69,6 +69,14 @@
 
     cardano-mainnet-mirror.url = "github:input-output-hk/cardano-mainnet-mirror/nix";
 
+    cardano-node-tests = {
+      url = "github:input-output-hk/cardano-node-tests";
+      inputs = {
+        cardano-node.follows = "/";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
+
     tullia = {
       url = "github:input-output-hk/tullia";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -307,6 +315,13 @@
                   }).profile-run {};
 
               all-profiles-json = pkgs.all-profiles-json;
+
+              "qa-tests/pr" = pkgs.writeShellApplication {
+                name = "qa-test-pr";
+                text = ''
+                  ${./scripts/qa-tests/pr.sh} "$@"
+                '';
+              };
             }
             # Add checks to be able to build them individually
             // (prefixNamesWith "checks/" checks);
