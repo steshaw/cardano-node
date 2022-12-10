@@ -118,6 +118,7 @@
         iohkNix.overlays.utils
         (final: prev: {
           inherit customConfig nix2container;
+          inherit (tullia.packages.${final.system}) tullia;
           gitrev = final.customConfig.gitrev or self.rev or "0000000000000000000000000000000000000000";
           commonLib = lib
             // iohkNix.lib
@@ -235,6 +236,7 @@
 
           shell = import ./shell.nix { inherit pkgs customConfig cardano-mainnet-mirror; };
           devShells = {
+            default = shell.dev;
             inherit (shell) devops workbench-shell;
             cluster = shell;
             profiled = project.profiled.shell;

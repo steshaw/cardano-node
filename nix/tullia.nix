@@ -18,7 +18,7 @@ self: system:
 
 let
   ciInputName = "GitHub event";
-  repo = "input-output-hk/cardano-node";
+  repository = "input-output-hk/cardano-node";
 in rec {
   tasks = let
     common = {
@@ -29,11 +29,10 @@ in rec {
         # needed on top-level task to set runtime options
         nix.enable = true;
 
-        github-ci = {
+        github.ci = {
           enable = config.actionRun.facts != {};
-          inherit repo;
-          sha = config.preset.github-ci.lib.getRevision ciInputName null;
-          clone.enable = false;
+          inherit repository;
+          revision = config.preset.github.lib.getRevision ciInputName null;
         };
       };
 
@@ -53,7 +52,7 @@ in rec {
     }.${system};
 
     flakeUrl = {config, lib, ...}:
-      lib.escapeShellArg "github:${repo}/${config.preset.github-ci.lib.getRevision ciInputName null}";
+      lib.escapeShellArg "github:${repository}/${config.preset.github.lib.getRevision ciInputName null}";
   in
     {
       "ci/push" = {lib, ...} @ args: {
@@ -83,7 +82,7 @@ in rec {
       io = ''
         #lib.io.github_push
         #input: "${ciInputName}"
-        #repo: "${repo}"
+        #repo: "${repository}"
       '';
     };
 
@@ -92,7 +91,7 @@ in rec {
       io = ''
         #lib.io.github_pr
         #input: "${ciInputName}"
-        #repo: "${repo}"
+        #repo: "${repository}"
         #target_default: false
       '';
     };

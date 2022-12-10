@@ -53,6 +53,7 @@ haskell-nix.cabalProject' ({ pkgs
       ghcid
       haskell-language-server
       cabal
+      tullia
     ];
 
     withHoogle = true;

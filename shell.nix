@@ -117,6 +117,7 @@ let
       workbenchRunner.workbench.workbench
       pstree
       pkgs.time
+      tullia
     ];
 
     shellHook = ''
