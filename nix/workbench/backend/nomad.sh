@@ -135,7 +135,7 @@ case "$op" in
         # developing or testing Nomad. No other configuration is required to
         # start the agent in this mode, but you may pass an optional
         # comma-separated list of mode configurations
-        nomad agent -config="$dir/nomad/config" -dev -log-level=INFO >> "$dir/nomad/stdout" 2>> "$dir/nomad/stderr" &
+        nomad agent -config="$dir/nomad/config" -dev >> "$dir/nomad/stdout" 2>> "$dir/nomad/stderr" &
         echo "$!" > "$dir/nomad/nomad.pid"
         setenvjqstr 'nomad_pid' $(cat $dir/nomad/nomad.pid)
         msg "Nomad started with PID $(cat $dir/nomad/nomad.pid)"
