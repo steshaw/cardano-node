@@ -62,8 +62,8 @@ import           Cardano.Ledger.Shelley.TxBody (MIRPot (..))
 import qualified Cardano.Ledger.Shelley.TxBody as Shelley
 
 import           Cardano.Api.Address
-import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.Hash
+import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.Keys.Byron
 import           Cardano.Api.Keys.Praos
 import           Cardano.Api.Keys.Shelley
@@ -108,7 +108,7 @@ instance FromCBOR Certificate where
     fromCBOR = fromShelleyCertificate <$> fromCBOR
 
 instance HasTextEnvelope Certificate where
-    textEnvelopeType _ = "CertificateShelley"
+    textEnvelopeType _ = ["CertificateShelley"]
     textEnvelopeDefaultDescr cert = case cert of
       StakeAddressRegistrationCertificate{}   -> "Stake address registration"
       StakeAddressDeregistrationCertificate{} -> "Stake address de-registration"

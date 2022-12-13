@@ -52,8 +52,8 @@ import qualified Cardano.Crypto.Hashing as Byron
 import qualified Cardano.Crypto.Signing as Byron
 import qualified Cardano.Crypto.Wallet as Wallet
 
-import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.Hash
+import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.Keys.Class
 import           Cardano.Api.Keys.Shelley
 import           Cardano.Api.SerialiseCBOR
@@ -131,10 +131,10 @@ instance HasTypeProxy ByronKey where
     proxyToAsType _ = AsByronKey
 
 instance HasTextEnvelope (VerificationKey ByronKey) where
-    textEnvelopeType _ = "PaymentVerificationKeyByron_ed25519_bip32"
+    textEnvelopeType _ = ["PaymentVerificationKeyByron_ed25519_bip32"]
 
 instance HasTextEnvelope (SigningKey ByronKey) where
-    textEnvelopeType _ = "PaymentSigningKeyByron_ed25519_bip32"
+    textEnvelopeType _ = ["PaymentSigningKeyByron_ed25519_bip32"]
 
 instance SerialiseAsRawBytes (VerificationKey ByronKey) where
     serialiseToRawBytes (ByronVerificationKey (Byron.VerificationKey xvk)) =
@@ -218,10 +218,10 @@ instance HasTypeProxy ByronKeyLegacy where
   proxyToAsType _ = AsByronKeyLegacy
 
 instance HasTextEnvelope (VerificationKey ByronKeyLegacy) where
-    textEnvelopeType _ = "PaymentVerificationKeyByronLegacy_ed25519_bip32"
+    textEnvelopeType _ = ["PaymentVerificationKeyByronLegacy_ed25519_bip32"]
 
 instance HasTextEnvelope (SigningKey ByronKeyLegacy) where
-    textEnvelopeType _ = "PaymentSigningKeyByronLegacy_ed25519_bip32"
+    textEnvelopeType _ = ["PaymentSigningKeyByronLegacy_ed25519_bip32"]
 
 newtype instance Hash ByronKeyLegacy = ByronKeyHashLegacy Byron.KeyHash
   deriving (Eq, Ord)

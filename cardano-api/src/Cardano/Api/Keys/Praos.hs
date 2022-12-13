@@ -30,12 +30,12 @@ import qualified Cardano.Crypto.DSIGN.Class as Crypto
 import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Crypto.KES.Class as Crypto
 import qualified Cardano.Crypto.VRF.Class as Crypto
+import           Cardano.Ledger.Crypto (StandardCrypto)
 import qualified Cardano.Ledger.Crypto as Shelley (KES, VRF)
 import qualified Cardano.Ledger.Keys as Shelley
-import           Cardano.Ledger.Crypto (StandardCrypto)
 
-import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.Hash
+import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.Keys.Class
 import           Cardano.Api.SerialiseBech32
 import           Cardano.Api.SerialiseCBOR
@@ -130,15 +130,15 @@ instance SerialiseAsRawBytes (Hash KesKey) where
       KesKeyHash <$> Crypto.hashFromBytes bs
 
 instance HasTextEnvelope (VerificationKey KesKey) where
-    textEnvelopeType _ = "KesVerificationKey_"
-                      <> fromString (Crypto.algorithmNameKES proxy)
+    textEnvelopeType _ = ["KesVerificationKey_"
+                      <> fromString (Crypto.algorithmNameKES proxy)]
       where
         proxy :: Proxy (Shelley.KES StandardCrypto)
         proxy = Proxy
 
 instance HasTextEnvelope (SigningKey KesKey) where
-    textEnvelopeType _ = "KesSigningKey_"
-                      <> fromString (Crypto.algorithmNameKES proxy)
+    textEnvelopeType _ = ["KesSigningKey_"
+                      <> fromString (Crypto.algorithmNameKES proxy)]
       where
         proxy :: Proxy (Shelley.KES StandardCrypto)
         proxy = Proxy
@@ -226,13 +226,13 @@ instance SerialiseAsRawBytes (Hash VrfKey) where
       VrfKeyHash <$> Crypto.hashFromBytes bs
 
 instance HasTextEnvelope (VerificationKey VrfKey) where
-    textEnvelopeType _ = "VrfVerificationKey_" <> fromString (Crypto.algorithmNameVRF proxy)
+    textEnvelopeType _ = ["VrfVerificationKey_" <> fromString (Crypto.algorithmNameVRF proxy)]
       where
         proxy :: Proxy (Shelley.VRF StandardCrypto)
         proxy = Proxy
 
 instance HasTextEnvelope (SigningKey VrfKey) where
-    textEnvelopeType _ = "VrfSigningKey_" <> fromString (Crypto.algorithmNameVRF proxy)
+    textEnvelopeType _ = ["VrfSigningKey_" <> fromString (Crypto.algorithmNameVRF proxy)]
       where
         proxy :: Proxy (Shelley.VRF StandardCrypto)
         proxy = Proxy
