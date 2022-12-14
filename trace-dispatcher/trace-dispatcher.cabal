@@ -74,6 +74,7 @@ library
                        -Wredundant-constraints
                        -Wmissing-export-lists
                        -Wno-incomplete-patterns
+                       -Wno-deprecations
 
 
 executable trace-dispatcher-examples

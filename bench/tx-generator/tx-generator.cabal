@@ -113,6 +113,7 @@ library
                      , ouroboros-consensus-shelley
                      , ouroboros-network
                      , ouroboros-network-framework
+                     , plucky
                      , plutus-ledger-api
                      , random
                      , serialise

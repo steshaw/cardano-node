@@ -69,6 +69,7 @@ library
                         Cardano.Api.IPC
                         Cardano.Api.IPC.Monad
                         Cardano.Api.InMode
+                        Cardano.Api.IPC.NtcVersionOf
                         Cardano.Api.Json
                         Cardano.Api.Key
                         Cardano.Api.KeysByron
@@ -126,6 +127,7 @@ library
                       , cborg
                       , contra-tracer
                       , containers
+                      , contra-tracer
                       , cryptonite
                       , deepseq
                       , directory
@@ -146,6 +148,7 @@ library
                       , ouroboros-network-framework
                       , parsec
                       , plutus-ledger-api ^>= 1.0
+                      , plucky
                       , prettyprinter
                       , prettyprinter-configurable ^>= 0.1
                       , random
