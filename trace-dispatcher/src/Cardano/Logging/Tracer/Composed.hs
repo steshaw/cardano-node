@@ -98,10 +98,11 @@ mkCardanoTracer' trStdout trForward mbTrEkg tracerName
       tr'  <- withDetailsFromConfig tr
       tr'' <- filterSeverityFromConfig tr'
       pure $  withInnerNames
+             $ appendOuterNames (nsGetOuter tracerName)
                $ withSeverity
                  $ withPrivacy
-                   $ appendOuterNames (nsGetOuter tracerName)
-                     tr''
+                    $ withDetails
+                        tr''
 
     backendsAndFormat ::
          Maybe [BackendConfig]

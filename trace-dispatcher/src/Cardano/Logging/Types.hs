@@ -439,25 +439,26 @@ data TraceControl where
     Reset     :: TraceControl
     Config    :: TraceConfig -> TraceControl
     Optimize  :: TraceControl
-    TCDocument  :: Int -> Text -> [(Text, Text)] -> DocCollector -> TraceControl
+    TCDocument  :: Int -> DocCollector -> TraceControl
 
 
 newtype DocCollector = DocCollector (IORef (Map Int LogDoc))
 
 data LogDoc = LogDoc {
-    ldDoc        :: !Text
-  , ldMetricsDoc :: !(SMap.Map Text Text)
-  , ldNamespace  :: ![[Text]]
-  , ldSeverity   :: ![SeverityS]
-  , ldPrivacy    :: ![Privacy]
-  , ldDetails    :: ![DetailLevel]
-  , ldBackends   :: ![BackendConfig]
-  , ldFiltered   :: ![SeverityF]
-  , ldLimiter    :: ![(Text, Double)]
+    ldDoc             :: !Text
+  , ldMetricsDoc      :: !(Map.Map Text Text)
+  , ldNamespace       :: ![[Text]]
+  , ldSeverityCoded   :: !(Maybe SeverityS)
+  , ldPrivacyCoded    :: !(Maybe Privacy)
+  , ldDetailsCoded    :: !(Maybe DetailLevel)
+  , ldDetails         :: ![DetailLevel]
+  , ldBackends        :: ![BackendConfig]
+  , ldFiltered        :: ![SeverityF]
+  , ldLimiter         :: ![(Text, Double)]
 } deriving(Eq, Show)
 
 emptyLogDoc :: Text -> [(Text, Text)] -> LogDoc
-emptyLogDoc d m = LogDoc d (Map.fromList m) [] [] [] [] [] [] []
+emptyLogDoc d m = LogDoc d (Map.fromList m) [] Nothing Nothing Nothing [] [] [] []
 
 -- | Type for the functions foldTraceM and foldMTraceM from module
 -- Cardano/Logging/Trace

@@ -106,6 +106,7 @@ documentTracer tracers = do
                     mconcat $ intersperse (fromText "\n\n")
                       [ namespacesBuilder (nub ldNamespace)
                       , accentuated ldDoc
+                      , propertiesBuilder ld
                       , configBuilder ld
                       ]
 
@@ -146,6 +147,19 @@ documentTracer tracers = do
     namespaceMetricsBuilder :: [Text] -> Builder
     namespaceMetricsBuilder ns = mconcat (intersperse (singleton '.') (map fromText ns))
 
+    propertiesBuilder :: LogDoc -> Builder
+    propertiesBuilder LogDoc {..} =
+        case ldSeverityCoded of
+          Just s  -> fromText "> Severity:   " <> asCode (fromString (show s)) <> "\n"
+          Nothing -> fromText "Severity missing" <> "\n"
+      <>
+        case ldPrivacyCoded of
+          Just p  -> fromText "Privacy:   " <> asCode (fromString (show p)) <> "\n"
+          Nothing -> fromText "nPrivacy missing" <> "\n"
+      <>
+        case ldDetailsCoded of
+          Just d  -> fromText "Detail level:   " <> asCode (fromString (show d)) <> "\n"
+          Nothing -> fromText "nPrivacy missing" <> "\n"
 
     configBuilder :: LogDoc -> Builder
     configBuilder LogDoc {..} =
@@ -159,7 +173,7 @@ documentTracer tracers = do
       <> fromText "\n"
       <> backendsBuilder (nub ldBackends)
       <> fromText "\n"
-      <> filteredBuilder (nub ldFiltered) (nub ldSeverity)
+      <> filteredBuilder (nub ldFiltered) ldSeverityCoded
       <> limiterBuilder (nub ldLimiter)
 
     backendsBuilder :: [BackendConfig] -> Builder
@@ -171,16 +185,17 @@ documentTracer tracers = do
     backendFormatToText :: BackendConfig -> Builder
     backendFormatToText be = asCode (fromString (show be))
 
-    filteredBuilder :: [SeverityF] -> [SeverityS] -> Builder
+    filteredBuilder :: [SeverityF] -> Maybe SeverityS -> Builder
     filteredBuilder [] _ = mempty
-    filteredBuilder l r =
+    filteredBuilder _ Nothing = mempty
+    filteredBuilder l (Just r) =
       fromText "Filtered "
-      <> case (l, r) of
-            ([SeverityF (Just lh)], [rh]) ->
-              if fromEnum rh >= fromEnum lh
+      <> case l of
+            [SeverityF (Just lh)] ->
+              if fromEnum r >= fromEnum lh
                 then (asCode . fromString) "Visible"
                 else (asCode . fromString) "Invisible"
-            ([SeverityF Nothing], [_rh]) -> "Invisible"
+            [SeverityF Nothing] -> "Invisible"
             _ -> mempty
       <> fromText " by config value: "
       <> mconcat (intersperse (fromText ", ")
@@ -217,15 +232,23 @@ documentTracersRun :: forall a. MetaTrace a => [Trace IO a] -> IO DocCollector
 documentTracersRun tracers = do
     let nss = allNamespaces :: [Namespace a]
         nsIdx = zip nss [0..]
-    coll <- fmap DocCollector (liftIO $ newIORef Map.empty)
+    coll <- fmap DocCollector (liftIO $ newIORef (Map.empty :: Map.Map Int LogDoc))
     mapM_ (docTrace nsIdx coll) tracers
     pure coll
   where
-    docTrace nsIdx dc (Trace tr) =
+    docTrace nsIdx dc@(DocCollector docRef) (Trace tr) =
       mapM_
-        (\ (ns, idx) ->
+        (\ (ns, idx) -> do
+            modifyIORef docRef
+                        (Map.insert
+                          idx
+                          ((emptyLogDoc (documentFor ns) (metricsDocFor ns))
+                            { ldSeverityCoded = Just $ severityFor ns
+                            , ldPrivacyCoded  = Just $ privacyFor ns
+                            , ldDetailsCoded  = Just $ detailsFor ns
+                          }))
             T.traceWith tr (emptyLoggingContext {lcNSInner = nsGetInner ns},
-                            Left (TCDocument idx (documentFor ns) (metricsDocFor ns) dc)))
+                            Left (TCDocument idx dc)))
         nsIdx
 
 -------------------- Callbacks ---------------------------
@@ -251,27 +274,27 @@ docTracerDatapoint backendConfig = Trace $ T.arrow $ T.emit output
 
 -- | Callback for doc collection
 addFiltered :: MonadIO m => TraceControl -> Maybe SeverityF -> m ()
-addFiltered (TCDocument idx mdText mdMetrics (DocCollector docRef)) (Just sev) = do
+addFiltered (TCDocument idx (DocCollector docRef)) (Just sev) = do
   liftIO $ modifyIORef docRef (\ docMap ->
       Map.insert
         idx
         ((\e -> e { ldFiltered = seq sev (sev : ldFiltered e)})
           (case Map.lookup idx docMap of
                         Just e  -> e
-                        Nothing -> seq mdText (seq mdMetrics (emptyLogDoc mdText mdMetrics))))
+                        Nothing -> error "DocuGenerator>>missing log doc"))
         docMap)
 addFiltered _ _ = pure ()
 
 -- | Callback for doc collection
 addLimiter :: MonadIO m => TraceControl -> (Text, Double) -> m ()
-addLimiter (TCDocument idx mdText mdMetrics (DocCollector docRef)) (ln, lf) = do
+addLimiter (TCDocument idx (DocCollector docRef)) (ln, lf) = do
   liftIO $ modifyIORef docRef (\ docMap ->
       Map.insert
         idx
         ((\e -> e { ldLimiter = seq ln (seq lf ((ln, lf) : ldLimiter e))})
           (case Map.lookup idx docMap of
                         Just e  -> e
-                        Nothing -> seq mdText (seq mdMetrics (emptyLogDoc mdText mdMetrics))))
+                        Nothing -> error "DocuGenerator>>missing log doc"))
         docMap)
 addLimiter _ _ = pure ()
 
@@ -281,7 +304,7 @@ docIt :: MonadIO m
   -> (LoggingContext, Either TraceControl a)
   -> m ()
 docIt EKGBackend (LoggingContext{},
-  Left (TCDocument idx mdText mdMetrics (DocCollector docRef))) = do
+  Left (TCDocument idx (DocCollector docRef))) = do
     liftIO $ modifyIORef docRef (\ docMap ->
         Map.insert
           idx
@@ -289,28 +312,22 @@ docIt EKGBackend (LoggingContext{},
                     })
             (case Map.lookup idx docMap of
                           Just e  -> e
-                          Nothing -> seq mdText (seq mdMetrics (emptyLogDoc mdText mdMetrics))))
+                          Nothing -> error "DocuGenerator>>missing log doc"))
           docMap)
 docIt backend (LoggingContext {..},
-  Left (TCDocument idx mdText mdMetrics (DocCollector docRef))) = do
+  Left (TCDocument idx (DocCollector docRef))) = do
     liftIO $ modifyIORef docRef (\ docMap ->
         Map.insert
           idx
           ((\e -> e { ldBackends  = backend : ldBackends e
                     , ldNamespace = nub ((lcNSOuter ++ lcNSInner) : ldNamespace e)
-                    , ldSeverity  = case lcSeverity of
-                                      Nothing -> ldSeverity e
-                                      Just s  -> s : ldSeverity e
-                    , ldPrivacy   = case lcPrivacy of
-                                      Nothing -> ldPrivacy e
-                                      Just p  -> p : ldPrivacy e
-                    , ldDetails   = case lcDetails of
+                    , ldDetails        = case lcDetails of
                                       Nothing -> ldDetails e
                                       Just d  -> d : ldDetails e
                     })
             (case Map.lookup idx docMap of
                           Just e  -> e
-                          Nothing -> seq mdText (seq mdMetrics (emptyLogDoc mdText mdMetrics))))
+                          Nothing -> error "DocuGenerator>>missing log doc"))
           docMap)
 
 -- | Callback for doc collection
@@ -319,7 +336,7 @@ docItDatapoint :: MonadIO m =>
   -> (LoggingContext, Either TraceControl a)
   -> m ()
 docItDatapoint _backend (LoggingContext {..},
-  Left (TCDocument idx mdText _mdMetrics (DocCollector docRef))) = do
+  Left (TCDocument idx (DocCollector docRef))) = do
   liftIO $ modifyIORef docRef (\ docMap ->
       Map.insert
         idx
@@ -328,7 +345,7 @@ docItDatapoint _backend (LoggingContext {..},
                   })
           (case Map.lookup idx docMap of
                         Just e  -> e
-                        Nothing -> emptyLogDoc mdText []))
+                        Nothing -> error "DocuGenerator>>missing log doc"))
         docMap)
 
 
