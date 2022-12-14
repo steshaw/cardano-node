@@ -49,6 +49,10 @@ case "$op" in
         setenvjqstr 'oci_image_tag'  ${WB_OCI_IMAGE_TAG:-$(cat  "$profile_dir/clusterImageTag")}
         # Script that creates the OCI image from nix2container layered output.
         setenvjqstr 'oci_image_skopeo_script' "$profile_dir/clusterImageCopyToPodman"
+        # Can't reside inside $dir, can't use a path longer than 108 characters!
+        # See: https://man7.org/linux/man-pages/man7/unix.7.html
+        # char        sun_path[108];            /* Pathname */
+        setenvjqstr 'podman_socket_path' "/run/user/$UID/workbench-podman.sock"
         # Set cluster's podman container defaults.
         # The workbench is expecting an specific hierarchy of folders and files.
         setenvjqstr 'container_workdir' "/tmp/cluster/"
@@ -459,44 +463,123 @@ nomad_create_folders_and_config() {
     # - Specific `nomad` `podman` plugin / task driver configuration docs:
     # - - https://www.nomadproject.io/plugins/drivers/podman#plugin-options
     # - - https://github.com/hashicorp/nomad-driver-podman#driver-configuration
+    local podman_socket_path=$(envjqr 'podman_socket_path')
     cat > "$dir/nomad/config/nomad.hcl" <<- EOF
-        region = "workbench"
-        datacenter = "workbench"
-        name = "workbench"
-        data_dir  = "$dir/nomad/data"
-        plugin_dir  = "$dir/nomad/data/plugins"
-        bind_addr = "127.0.0.1"
-        ports = {
-          http = 4646
-        }
-        log_level = "INFO"
-        log_json = true
-        log_file = "$dir/nomad/"
-        leave_on_interrupt = true
-        leave_on_terminate = true
-        plugin "nomad-driver-podman" {
-          args = []
-          config {
-            # TODO: Use custom socket location!
-            # socket_path = "unix:$dir/nomad/podman.sock"
-            volumes {
-              enabled = true
-            }
-            recover_stopped = false
-            gc {
-              container = false
-            }
-          }
-        }
+# Names:
+########
+# Specifies the region the Nomad agent is a member of. A region typically maps
+# to a geographic region, for example us, with potentially multiple zones, which
+# map to datacenters such as us-west and us-east.
+region = "workbench"
+# Specifies the data center of the local agent. All members of a datacenter
+# should share a local LAN connection.
+datacenter = "workbench"
+# Specifies the name of the local node. This value is used to identify
+# individual agents. When specified on a server, the name must be unique within
+# the region.
+name = "workbench"
+
+# Paths:
+########
+# Specifies a local directory used to store agent state. Client nodes use this
+# directory by default to store temporary allocation data as well as cluster
+# information. Server nodes use this directory to store cluster state, including
+# the replicated log and snapshot data. This must be specified as an absolute
+# path.
+data_dir  = "$dir/nomad/data"
+# Specifies the directory to use for looking up plugins. By default, this is the
+# top-level data_dir suffixed with "plugins", like "/opt/nomad/plugins". This
+# must be an absolute path.
+plugin_dir  = "$dir/nomad/data/plugins"
+
+# Network:
+##########
+# Specifies which address the Nomad agent should bind to for network services,
+# including the HTTP interface as well as the internal gossip protocol and RPC
+# mechanism. This should be specified in IP format, and can be used to easily
+# bind all network services to the same address. It is also possible to bind the
+# individual services to different addresses using the "addresses" configuration
+# option. Dev mode (-dev) defaults to localhost.
+bind_addr = "127.0.0.1"
+# Specifies the network ports used for different services required by the Nomad
+# agent.
+ports = {
+  # The port used to run the HTTP server.
+  http = 4646
+}
+
+# Logging:
+##########
+# Specifies the verbosity of logs the Nomad agent will output. Valid log levels
+# include WARN, INFO, or DEBUG in increasing order of verbosity.
+log_level = "INFO"
+# Output logs in a JSON format.
+log_json = true
+# Specifies the path for logging. If the path does not includes a filename, the
+# filename defaults to nomad.log. This setting can be combined with
+# "log_rotate_bytes" and "log_rotate_duration" for a fine-grained log rotation
+# control.
+log_file = "$dir/nomad/nomad.log"
+# Specifies if the agent should log to syslog. This option only works on Unix
+# based systems.
+enable_syslog = false
+# Specifies if the debugging HTTP endpoints should be enabled. These endpoints
+# can be used with profiling tools to dump diagnostic information about Nomad's
+# internals.
+enable_debug = false
+
+# Termination:
+##############
+# Specifies if the agent should gracefully leave when receiving the interrupt
+# signal. By default, the agent will exit forcefully on any signal. This value
+# should only be set to true on server agents if it is expected that a
+# terminated server instance will never join the cluster again.
+leave_on_interrupt = true
+# Specifies if the agent should gracefully leave when receiving the terminate
+# signal. By default, the agent will exit forcefully on any signal. This value
+# should only be set to true on server agents if it is expected that a
+# terminated server instance will never join the cluster again.
+leave_on_terminate = true
+
+# Plugins:
+##########
+# https://developer.hashicorp.com/nomad/plugins/drivers/podman#plugin-options
+plugin "nomad-driver-podman" {
+  args = []
+  # https://github.com/hashicorp/nomad-driver-podman#driver-configuration
+  config {
+    # Defaults to "unix:///run/podman/podman.sock" when running as root or a
+    # cgroup V1 system, and "unix:///run/user/<USER_ID>/podman/podman.sock" for
+    # rootless cgroup V2 systems.
+    socket_path = "unix://$podman_socket_path"
+    # Allows tasks to bind host paths (volumes) inside their container.
+    volumes {
+      enabled = true
+    }
+    # This option can be used to disable Nomad from removing a container when
+    # the task exits.
+    gc {
+      container = true
+    }
+    # Allows the driver to start and reuse a previously stopped container after
+    # a Nomad client restart. Consider a simple single node system and a
+    # complete reboot. All previously managed containers will be reused instead
+    # of disposed and recreated.
+    recover_stopped = false
+    # Setting this to true will disable Nomad logs collection of Podman tasks.
+    # If you don't rely on nomad log capabilities and exclusively use host based
+    # log aggregation, you may consider this option to disable nomad log
+    # collection overhead. Beware to you also loose automatic log rotation.
+    disable_log_collection = false
+  }
+}
 EOF
 }
 
 # Start the `podman` API service needed by `nomad`.
 nomad_start_podman_service() {
     local dir=$1
-    # TODO: Use custom socket location!
-    # podman --url "unix:$dir/nomad/podman.sock" system service --time 60 "unix:$dir/nomad/podman.sock" &
-    local socket="/run/user/$UID/podman/podman.sock"
+    local podman_socket_path=$(envjqr 'podman_socket_path')
 #    if test -S "$socket"
 #    then
 #        msg "Podman API service was already running"
@@ -505,15 +588,15 @@ nomad_start_podman_service() {
         # https://discuss.hashicorp.com/t/nomad-podman-rhel8-driver-difficulties/21877/4
         # `--time`: Time until the service session expires in seconds. Use 0
         # to disable the timeout (default 5).
-        podman system service --time 60 &
+        podman system service --time 60 "unix://$podman_socket_path" &
         local i=0
         local patience=5
-        while test ! -S "$socket"
+        while test ! -S "$podman_socket_path"
         do printf "%3d" $i; sleep 1
             i=$((i+1))
             if test $i -ge $patience
             then echo
-                progress "nomad-driver-podman" "$(red FATAL):  workbench:  nomad-driver-podman:  patience ran out after ${patience}s, socket $socket"
+                progress "nomad-driver-podman" "$(red FATAL):  workbench:  nomad-driver-podman:  patience ran out after ${patience}s, socket $podman_socket_path"
                 backend_nomad stop-cluster "$dir"
                 fatal "nomad-driver-podman startup did not succeed:  check logs"
             fi
