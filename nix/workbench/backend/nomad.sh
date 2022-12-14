@@ -175,6 +175,7 @@ case "$op" in
             if test $i -ge $patience
             then echo
                 progress "nomad agent" "$(red FATAL):  workbench:  nomad agent:  patience ran out after ${patience}s, 127.0.0.1:4646"
+                cat "$dir/nomad/stderr"
                 backend_nomad stop-cluster "$dir"
                 fatal "nomad agent startup did not succeed:  check logs"
             fi
