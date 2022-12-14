@@ -4,6 +4,7 @@ module Test.Golden.Shelley.TextEnvelope.Tx.Tx
   ( golden_shelleyTx
   ) where
 
+import           Cardano.Api
 import           Cardano.Prelude
 
 import           Hedgehog (Property)
@@ -49,4 +50,5 @@ golden_shelleyTx = propertyOnce . H.moduleWorkspace "tmp" $ \tempDir -> do
 
   -- Check the newly created files have not deviated from the
   -- golden files
-  checkTxCddlFormat referenceTx transactionFile
+  let txBodyTextEnvType = textEnvelopeType $ AsTx AsAlonzoEra
+  checkTextEnvelopeFormat txBodyTextEnvType referenceTx transactionFile
