@@ -128,9 +128,13 @@ case "$op" in
         local oci_image_tag=$(          envjqr 'oci_image_tag')
         local oci_image_skopeo_script=$(envjqr 'oci_image_skopeo_script')
         msg "Creating OCI image ..."
+        # TODO: for further research.
+        # STORAGE_DRIVER=overlay "$oci_image_skopeo_script"
+        # If podman 4.2.1 and nomad v1.3.5 this fix is not needed anymore
         # Forced the `overlay` storage driver or podman won't see the image.
         # https://docs.podman.io/en/latest/markdown/podman.1.html#note-unsupported-file-systems-in-rootless-mode
-        STORAGE_DRIVER=overlay "$oci_image_skopeo_script"
+        # Error was: workbench:  FATAL: OCI image registry.workbench.iog.io/cluster:2l7wi7sh1zyp2mnl24m13ibnh2wsjvwg cannot be found by podman
+        "$oci_image_skopeo_script"
         # Check that `podman` can see the "cluster" OCI image.
         if ! podman image exists "${oci_image_name}:${oci_image_tag}"
         then
