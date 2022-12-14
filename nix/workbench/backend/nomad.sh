@@ -100,14 +100,28 @@ case "$op" in
           cp -r "$dir"/genesis/utxo-keys.bak/* "$dir"/genesis/utxo-keys/
         fi
 
-        # Populate the files needed by the `supervisord` instance running inside
-        # the container.
+        # Populate the files needed by each `supervisord` server that will run
+        # for every podman container / nomad task (generator, tracer and nodes).
+        # All these folder are going to be mounted on run/current/supervisor to
+        # keep the supervisor.conf compatible with the supervisor backend.
+        # Previously tried sharing the same folder for every supervisor but
+        # difficult to debug race conditions happened (best guess is PID files).
+        mkdir -p     "$dir"/generator/supervisor
+        mkdir -p     "$dir"/tracer/supervisor
+        for node in $(jq_tolist 'keys' "$dir"/node-specs.json)
+        do
+            mkdir -p "$dir"/"$node"/supervisor
+        done
         local supervisord_conf=$(envjqr 'supervisord_conf')
-        mkdir -p                 "$dir"/supervisor
-        # If $dir is being mounted inside the container the file must be copied
-        # because if it references something outside the container's mounted
-        # volume the container probably won't be able to access it.
-        cp -f "$supervisord_conf" "$dir"/supervisor/supervisord.conf
+        # These files have to be copied, not linked, because folder are going to
+        # be mounted inside the container and the linked file may not be
+        # accesible or may have a different path.
+        cp     "$supervisord_conf" "$dir"/generator/supervisor/supervisord.conf
+        cp     "$supervisord_conf" "$dir"/tracer/supervisor/supervisord.conf
+        for node in $(jq_tolist 'keys' "$dir"/node-specs.json)
+        do
+            cp "$supervisord_conf" "$dir"/"$node"/supervisor/supervisord.conf
+        done
 
         # Create the "cluster" OCI image.
         local oci_image_name=$(         envjqr 'oci_image_name')
@@ -612,41 +626,20 @@ nomad_start_podman_service() {
 # [https://github.com/hashicorp/nomad/issues/6758#issuecomment-794116722]
 nomad_create_job_file() {
     local dir=$1
-    local container_mountpoint=$(      envjqr 'container_mountpoint')
-    # If CARDANO_MAINNET_MIRROR is present attach it as a volume.
+    # If CARDANO_MAINNET_MIRROR is present generate a list of needed volumes.
     if test -n "$CARDANO_MAINNET_MIRROR"
     then
       # The nix-store path contains 3 levels of symlinks. This is a hack to
       # avoid creating a container image with all these files.
       local immutable_store=$(readlink -f "$CARDANO_MAINNET_MIRROR"/immutable)
-      local optional_volumes="[
+      local mainnet_mirror_volumes="[
           \"$CARDANO_MAINNET_MIRROR:$CARDANO_MAINNET_MIRROR:ro\"
         , \"$immutable_store:$immutable_store:ro\"
         $(find -L "$immutable_store" -type f -exec realpath {} \; | xargs dirname | sort | uniq | xargs -I "{}" echo ", \"{}:{}:ro\"")
       ]"
     else
-      local optional_volumes="[]"
+      local mainnet_mirror_volumes="[]"
     fi
-    # Volumes
-    local jq_filter="
-      [
-        \"${dir}:/tmp/cluster/run/current:rw,exec\"
-      ]
-      +
-      ( . | keys | map( \"${dir}/genesis:${container_mountpoint}/\" + . + \"/genesis:ro\" ) )
-      +
-      ( . | keys | map( \"${dir}/\" + . + \":${container_mountpoint}/generator/\" + . + \":ro\" ) )
-      +
-      ( . | keys | map( \"${dir}/genesis:${container_mountpoint}/generator/\" + . + \"/genesis:ro\" ) )
-      +
-      [
-          \"${dir}/genesis:${container_mountpoint}/generator/genesis:ro\"
-        , \"${dir}/genesis/utxo-keys:${container_mountpoint}/generator/genesis/utxo-keys:ro\"
-      ]
-      +
-      \$optional_volumes
-    "
-    local podman_volumes=$(jq "$jq_filter" --argjson optional_volumes "$optional_volumes" "$dir"/profile/node-specs.json)
     # Create the task to run in `nomad` using `podman` driver.
     # https://www.nomadproject.io/docs/job-specification
     # https://www.nomadproject.io/docs/job-specification/job
@@ -675,28 +668,94 @@ job "cluster" {
       mode = "host"
     }
 EOF
-    # Cluster
-#    local task_stanza_name_c="cluster"
-#    local task_stanza_file_c="$dir/nomad/job-cluster-task-$task_stanza_name_c.hcl"
-#    nomad_create_task_stanza "$task_stanza_file_c" "$task_stanza_name_c" "$podman_volumes"
-#cat "$task_stanza_file_c" >> "$dir/nomad/job-cluster.hcl"
+    # Hint:
+    # - Working dir is: /tmp/cluster/
+    # - Mount point is: /tmp/cluster/run/current
+    local container_mountpoint=$(      envjqr 'container_mountpoint')
     # Nodes
     for node in $(jq_tolist 'keys' "$dir"/node-specs.json)
     do
       local task_stanza_name="$node"
       local task_stanza_file="$dir/nomad/job-cluster-task-$task_stanza_name.hcl"
+      # Every node needs access to itself, "../tracer/" and "./genesis/"
+      # *1 And remapping its own supervisor to the cluster/upper directory.
+      # *2 And read only access to eveything else so supervisor.conf doesn't
+      # complain about missing files/folders and can be shared unchanged with
+      # the workbench's "supervisor" backend.
+      local jq_filter="
+        [
+            \"${dir}/${node}/supervisor:${container_mountpoint}/supervisor:rw\"
+          , \"${dir}/tracer:${container_mountpoint}/tracer:rw\"
+          , \"${dir}/${node}:${container_mountpoint}/${node}:rw,exec\"
+        ]
+        +
+        [
+          \"${dir}/genesis:${container_mountpoint}/${node}/genesis:ro\"
+        ]
+        +
+        [
+          \"${dir}/generator:${container_mountpoint}/generator:ro\"
+        ]
+        +
+        ( . | keys | map(select(. != \"${node}\")) | map(\"${dir}/\" + . + \":${container_mountpoint}/\" + . + \":ro\") )
+        +
+        \$mainnet_mirror_volumes
+      "
+      local podman_volumes=$(jq "$jq_filter" --argjson mainnet_mirror_volumes "$mainnet_mirror_volumes" "$dir"/profile/node-specs.json)
       nomad_create_task_stanza "$task_stanza_file" "$task_stanza_name" "$podman_volumes"
 cat "$task_stanza_file" >> "$dir/nomad/job-cluster.hcl"
     done
     # Tracer
     local task_stanza_name_t="tracer"
     local task_stanza_file_t="$dir/nomad/job-cluster-task-$task_stanza_name_t.hcl"
-    nomad_create_task_stanza "$task_stanza_file_t" "$task_stanza_name_t" "$podman_volumes"
+    # Tracer only needs access to itself.
+    # *1 And remapping its own supervisor to the cluster/upper directory.
+    # *2 And read only access to eveything else so supervisor.conf doesn't
+    # complain about missing files/folders and can be shared unchanged with
+    # the workbench's "supervisor" backend.
+    local jq_filter_t="
+      [
+          \"${dir}/tracer/supervisor:${container_mountpoint}/supervisor:rw\"
+        , \"${dir}/tracer:${container_mountpoint}/tracer:rw\"
+      ]
+      +
+      [
+         \"${dir}/generator:${container_mountpoint}/generator:ro\"
+      ]
+      +
+      ( . | keys | map(\"${dir}/\" + . + \":${container_mountpoint}/\" + . + \":ro\") )
+    "
+    local podman_volumes_t=$(jq "$jq_filter_t" "$dir"/profile/node-specs.json)
+    nomad_create_task_stanza "$task_stanza_file_t" "$task_stanza_name_t" "$podman_volumes_t"
 cat "$task_stanza_file_t" >> "$dir/nomad/job-cluster.hcl"
     # Generator
     local task_stanza_name_g="generator"
     local task_stanza_file_g="$dir/nomad/job-cluster-task-$task_stanza_name_g.hcl"
-    nomad_create_task_stanza "$task_stanza_file_g" "$task_stanza_name_g" "$podman_volumes"
+    # Generator needs access to itself, "./genesis", "./genesis/utxo-keys", every node inside its folder (with the genesis of every node).
+    # *1 And remapping its own supervisor to the cluster/upper directory.
+    # *2 And read only access to eveything else so supervisor.conf doesn't
+    # complain about missing files/folders and can be shared unchanged with
+    # the workbench's "supervisor" backend.
+    local jq_filter_g="
+      [
+          \"${dir}/generator/supervisor:${container_mountpoint}/supervisor:rw\"
+        , \"${dir}/tracer:${container_mountpoint}/tracer:rw\"
+        , \"${dir}/generator:${container_mountpoint}/generator:rw\"
+      ]
+      +
+      [
+          \"${dir}/genesis:${container_mountpoint}/generator/genesis:ro\"
+        , \"${dir}/genesis/utxo-keys:${container_mountpoint}/generator/genesis/utxo-keys:ro\"
+      ]
+      +
+      ( . | keys | map( \"${dir}/\" + . + \":${container_mountpoint}/generator/\" + . + \":ro\" ) )
+      +
+      ( . | keys | map( \"${dir}/genesis:${container_mountpoint}/generator/\" + . + \"/genesis:ro\" ) )
+      +
+      ( . | keys | map(\"${dir}/\" + . + \":${container_mountpoint}/\" + . + \":ro\") )
+    "
+    local podman_volumes_g=$(jq "$jq_filter_g" "$dir"/profile/node-specs.json)
+    nomad_create_task_stanza "$task_stanza_file_g" "$task_stanza_name_g" "$podman_volumes_g"
 cat "$task_stanza_file_g" >> "$dir/nomad/job-cluster.hcl"
     # The end.
 cat >> "$dir/nomad/job-cluster.hcl" <<- EOF
