@@ -148,19 +148,28 @@ case "$op" in
         msg "Preparing podman API service for nomad driver \`nomad-driver-podman\` ..."
         nomad_start_podman_service "$dir"
 
-        # Start `nomad` agent in "-dev-` mode`".
+        # Start `nomad` agent".
         msg "Starting nomad agent ..."
         # The Nomad agent is a long running process which runs on every machine
         # that is part of the Nomad cluster. The behavior of the agent depends
         # on if it is running in client or server mode. Clients are responsible
         # for running tasks, while servers are responsible for managing the
         # cluster.
-        # -dev: Start the agent in development mode. This enables a
-        # pre-configured dual-role agent (client + server) which is useful for
-        # developing or testing Nomad. No other configuration is required to
-        # start the agent in this mode, but you may pass an optional
-        # comma-separated list of mode configurations
-        nomad agent -config="$dir/nomad/config" -dev >> "$dir/nomad/stdout" 2>> "$dir/nomad/stderr" &
+        #
+        # The Nomad agent supports multiple configuration files, which can be
+        # provided using the -config CLI flag. The flag can accept either a file
+        # or folder. In the case of a folder, any .hcl and .json files in the
+        # folder will be loaded and merged in lexicographical order. Directories
+        # are not loaded recursively.
+        #   -config=<path>
+        # The path to either a single config file or a directory of config files
+        # to use for configuring the Nomad agent. This option may be specified
+        # multiple times. If multiple config files are used, the values from
+        # each will be merged together. During merging, values from files found
+        # later in the list are merged over values from previously parsed file.
+        #
+        # Running a dual-role agent (client + server) but not "-dev" mode.
+        nomad agent -config="$dir/nomad/config" >> "$dir/nomad/stdout" 2>> "$dir/nomad/stderr" &
         echo "$!" > "$dir/nomad/nomad.pid"
         setenvjqstr 'nomad_pid' $(cat $dir/nomad/nomad.pid)
         msg "Nomad started with PID $(cat $dir/nomad/nomad.pid)"
@@ -536,6 +545,57 @@ bind_addr = "127.0.0.1"
 ports = {
   # The port used to run the HTTP server.
   http = 4646
+  # The port used for internal RPC communication between agents and servers, and
+  # for inter-server traffic for the consensus algorithm (raft).
+  rpc  = 4647
+  # The port used for the gossip protocol for cluster membership. Both TCP and
+  # UDP should be routable between the server nodes on this port.
+  serf = 4648
+}
+# Specifies the advertise address for individual network services. This can be
+# used to advertise a different address to the peers of a server or a client
+# node to support more complex network configurations such as NAT. This
+# configuration is optional, and defaults to the bind address of the specific
+# network service if it is not provided. Any values configured in this stanza
+# take precedence over the default "bind_addr".
+# If the bind address is 0.0.0.0 then the IP address of the default private
+# network interface advertised. The advertise values may include an alternate
+# port, but otherwise default to the port used by the bind address. The values
+# support go-sockaddr/template format.
+# Needed becasue of the below error message:
+# "Defaulting advertise to localhost is unsafe, please set advertise manually"
+advertise {
+  # The address to advertise for the HTTP interface. This should be reachable by
+  # all the nodes from which end users are going to use the Nomad CLI tools.
+  http = "127.0.0.1:4646"
+  # The address used to advertise to Nomad clients for connecting to Nomad
+  # servers for RPC. This allows Nomad clients to connect to Nomad servers from
+  # behind a NAT gateway. This address much be reachable by all Nomad client
+  # nodes. When set, the Nomad servers will use the advertise.serf address for
+  # RPC connections amongst themselves. Setting this value on a Nomad client has
+  # no effect.
+  rpc = "127.0.0.1:4647"
+  # The address advertised for the gossip layer. This address must be reachable
+  # from all server nodes. It is not required that clients can reach this
+  # address. Nomad servers will communicate to each other over RPC using the
+  # advertised Serf IP and advertised RPC Port.
+  serf = "127.0.0.1:4648"
+}
+# The tls stanza configures Nomad's TLS communication via HTTP and RPC to
+# enforce secure cluster communication between servers, clients, and between.
+tls {
+  # Specifies if TLS should be enabled on the HTTP endpoints on the Nomad agent,
+  # including the API.
+  http = false
+  # Specifies if TLS should be enabled on the RPC endpoints and Raft traffic
+  # between the Nomad servers. Enabling this on a Nomad client makes the client
+  # use TLS for making RPC requests to the Nomad servers.
+  rpc  = false
+  # Specifies agents should require client certificates for all incoming HTTPS
+  # requests. The client certificates must be signed by the same CA as Nomad.
+  verify_https_client = false
+  # Specifies if outgoing TLS connections should verify the server's hostname.
+  verify_server_hostname = false
 }
 
 # Logging:
@@ -571,6 +631,56 @@ leave_on_interrupt = true
 # terminated server instance will never join the cluster again.
 leave_on_terminate = true
 
+# Server:
+#########
+# https://developer.hashicorp.com/nomad/docs/configuration/server
+server {
+  # Specifies if this agent should run in server mode. All other server options depend on this value being set.
+  enabled = true
+  # Specifies the directory to use for server-specific data, including the
+  # replicated log. By default, this is the top-level "data_dir" suffixed with
+  # "server", like "/opt/nomad/server". The top-level option must be set, even
+  # when setting this value. This must be an absolute path.
+  data_dir = "$dir/nomad/data/server"
+  # Specifies the number of server nodes to wait for before bootstrapping. It is
+  # most common to use the odd-numbered integers 3 or 5 for this value,
+  # depending on the cluster size. A value of 1 does not provide any fault
+  # tolerance and is not recommended for production use cases.
+  bootstrap_expect = 1
+  # Specifies the interval between the job garbage collections. Only jobs who
+  # have been terminal for at least job_gc_threshold will be collected. Lowering
+  # the interval will perform more frequent but smaller collections. Raising the
+  # interval will perform collections less frequently but collect more jobs at a
+  # time. Reducing this interval is useful if there is a large throughput of
+  # tasks, leading to a large set of dead jobs. This is specified using a label
+  # suffix like "30s" or "3m". job_gc_interval was introduced in Nomad 0.10.0.
+  job_gc_interval = "15s"
+  # Specifies the minimum time a job must be in the terminal state before it is
+  # eligible for garbage collection. This is specified using a label suffix like
+  # "30s" or "1h".
+  job_gc_threshold = "15s"
+  # Specifies if Nomad will ignore a previous leave and attempt to rejoin the
+  # cluster when starting. By default, Nomad treats leave as a permanent intent
+  # and does not attempt to join the cluster again when starting. This flag
+  # allows the previous state to be used to rejoin the cluster.
+  rejoin_after_leave = false
+}
+
+# Client:
+#########
+# https://developer.hashicorp.com/nomad/docs/configuration/client
+client {
+  enabled = true
+  # Specifies the directory to use to store client state. By default, this is
+  # the top-level "data_dir" suffixed with "client", like "/opt/nomad/client".
+  # This must be an absolute path.
+  state_dir = "$dir/nomad/data/client"
+  # Specifies the maximum amount of time a job is allowed to wait to exit.
+  # Individual jobs may customize their own kill timeout, but it may not exceed
+  # this value.
+  max_kill_timeout = "30s"
+}
+
 # Plugins:
 ##########
 # https://developer.hashicorp.com/nomad/plugins/drivers/podman#plugin-options
@@ -603,6 +713,44 @@ plugin "nomad-driver-podman" {
     disable_log_collection = false
   }
 }
+
+# Misc:
+#######
+# The vault stanza configures Nomad's integration with HashiCorp's Vault. When
+# configured, Nomad can create and distribute Vault tokens to tasks
+# automatically. For more information on the architecture and setup, please see
+# the Nomad and Vault integration documentation.
+vault {
+  # Specifies if the Vault integration should be activated.
+  enabled = false
+}
+# The acl stanza configures the Nomad agent to enable ACLs and tunes various ACL
+# parameters. Learn more about configuring Nomad's ACL system in the Secure
+# Nomad with Access Control guide.
+acl {
+  # Specifies if ACL enforcement is enabled. All other ACL configuration options
+  # depend on this value. Note that the Nomad command line client will send
+  # requests for client endpoints such as alloc exec directly to Nomad clients
+  # whenever they are accessible. In this scenario, the client will enforce
+  # ACLs, so both servers and clients should have ACLs enabled.
+  enabled = false
+}
+# The audit stanza configures the Nomad agent to configure Audit logging
+# behavior. Audit logging is an Enterprise-only feature.
+audit {
+  # Specifies if audit logging should be enabled. When enabled, audit logging
+  # will occur for every request, unless it is filtered by a filter.
+  enabled = true
+}
+# The consul stanza configures the Nomad agent's communication with Consul for
+# service discovery and key-value integration. When configured, tasks can
+# register themselves with Consul, and the Nomad cluster can automatically
+# bootstrap itself.
+consul {
+}
+# Specifies if Nomad should not check for updates and security bulletins. This
+# defaults to true in Nomad Enterprise.
+disable_update_check = true
 EOF
 }
 
@@ -834,9 +982,19 @@ task "$name" {
     SUPERVISORD_CONFIG = "${container_supervisord_conf}"
     SUPERVISORD_LOGLEVEL = "${container_supervisord_loglevel}"
   }
-  # Avoid: podman WARN[0066] StopSignal SIGTERM failed to stop container
-  # cluster-XX in 5 seconds, resorting to SIGKILL
-  kill_timeout = 15
+  # Specifies the duration to wait for an application to gracefully quit before
+  # force-killing. Nomad first sends a kill_signal. If the task does not exit
+  # before the configured timeout, SIGKILL is sent to the task. Note that the
+  # value set here is capped at the value set for max_kill_timeout on the agent
+  # running the task, which has a default value of 30 seconds.
+  # Avoid: WARN[0120] StopSignal SIGTERM failed to stop container XXX in 10
+  # seconds, resorting to SIGKILL
+  kill_timeout = "10s"
+  # Specifies a configurable kill signal for a task, where the default is SIGINT
+  # (or SIGTERM for docker, or CTRL_BREAK_EVENT for raw_exec on Windows). Note
+  # that this is only supported for drivers sending signals (currently docker,
+  # exec, raw_exec, and java drivers).
+  kill_signal = "SIGINT"
 }
 EOF
 }
