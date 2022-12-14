@@ -204,7 +204,6 @@ case "$op" in
         # constraints, resource exhaustion, etc), then the exit code will be 2.
         # Any other errors, including client connection issues or internal
         # errors, are indicated by exit code 1.
-        # FIXME: Timeout for "Deployment "XXX" in progress..."
         nomad job run -verbose "$dir/nomad/job-cluster.hcl"
         # Assuming that `nomad` placement is enough wait.
         local nomad_alloc_id=$(nomad job allocs -json cluster | jq -r '.[0].ID')
@@ -998,3 +997,569 @@ task "$name" {
 }
 EOF
 }
+
+# TODO: Finally!!! I can use JSON instead of HCL: "nomad job run --json FILE"
+# https://github.com/hashicorp/nomad/blob/main/CHANGELOG.md#130-may-11-2022
+# https://github.com/hashicorp/nomad/pull/12591
+# cat > "$dir/nomad/job-cluster.jq" <<- EOF
+# {
+#   "Job": {
+#       "Region": "workbench"
+#     , "Namespace": null
+#     , "ID": "cluster"
+#     , "Name": "cluster"
+#     , "Type": "service"
+#     , "Priority": null
+#     , "AllAtOnce": null
+#     , "Datacenters": [
+#         "workbench"
+#       ]
+#     , "Constraints": null
+#     , "Affinities": null
+#     , "Update": null
+#     , "Multiregion": null
+#     , "Spreads": null
+#     , "Periodic": null
+#     , "ParameterizedJob": null
+#     , "Reschedule": {
+#           "Attempts": 0
+#         , "Interval": null
+#         , "Delay": null
+#         , "DelayFunction": null
+#         , "MaxDelay": null
+#         , "Unlimited": false
+#       },
+#     , "Migrate": null
+#     , "Meta": null
+#     , "ConsulToken": null
+#     , "VaultToken": null
+#     , "Stop": null
+#     , "ParentID": null
+#     , "Dispatched": false
+#     , "DispatchIdempotencyToken": null
+#     , "Payload": null
+#     , "ConsulNamespace": null
+#     , "VaultNamespace": null
+#     , "NomadTokenID": null
+#     , "Status": null
+#     , "StatusDescription": null
+#     , "Stable": null
+#     , "Version": null
+#     , "SubmitTime": null
+#     , "CreateIndex": null
+#     , "ModifyIndex": null
+#     , "JobModifyIndex": nul
+#     , "TaskGroups": [
+#         {
+#             "Name": "cluster"
+#           , "Count": null,
+#           , "Constraints": null
+#           , "Affinities": null
+#           , "Spreads": null
+#           , "Volumes": null,
+#           , "RestartPolicy": {
+#                 "Interval": null
+#               , "Attempts": 0
+#               , "Delay": null
+#               , "Mode": "fail"
+#             }
+#           , "ReschedulePolicy": null
+#           , "EphemeralDisk": null
+#           , "Update": null
+#           , "Migrate": null
+#           , "Networks": [
+#               {
+#                   "Mode": "host"
+#                 , "Device": ""
+#                 , "CIDR": ""
+#                 , "IP": ""
+#                 , "DNS": null
+#                 , "ReservedPorts": null
+#                 , "DynamicPorts": null
+#                 , "Hostname": ""
+#                 , "MBits": null
+#               }
+#             ],
+#           , "Meta": null
+#           , "Services": null
+#           , "ShutdownDelay": null
+#           , "StopAfterClientDisconnect": null
+#           , "MaxClientDisconnect": null
+#           , "Scaling": null
+#           , "Consul": null
+#           , "Tasks": [
+#             ]
+#         }
+#       ]
+#   }
+# }
+# EOF
+
+#####################################################################
+# If you start nomad in "-dev" mode, this what its config looks like:
+#####################################################################
+
+# $ nomad agent-info -json
+# {
+#     "config": {
+#         "DataDir": "",
+#         "EnableSyslog": false,
+#         "Files": null,
+#         "HTTPAPIResponseHeaders": {},
+#         "TLSConfig": {
+#             "Checksum": "",
+#             "EnableHTTP": false,
+#             "KeyFile": "",
+#             "KeyLoader": {},
+#             "TLSCipherSuites": "",
+#             "TLSMinVersion": "",
+#             "TLSPreferServerCipherSuites": false,
+#             "CAFile": "",
+#             "VerifyServerHostname": false,
+#             "VerifyHTTPSClient": false,
+#             "EnableRPC": false,
+#             "RPCUpgradeMode": false,
+#             "CertFile": ""
+#         },
+#         "Vault": {
+#             "Addr": "https://vault.service.consul:8200",
+#             "ConnectionRetryIntv": 30000000000.0,
+#             "Enabled": null,
+#             "Namespace": "",
+#             "Role": "",
+#             "TLSKeyFile": "",
+#             "TLSServerName": "",
+#             "TLSCaPath": "",
+#             "TLSSkipVerify": null,
+#             "TLSCaFile": "",
+#             "AllowUnauthenticated": true,
+#             "TLSCertFile": "",
+#             "TaskTokenTTL": "",
+#             "Token": ""
+#         },
+#         "Addresses": {
+#             "Serf": "127.0.0.1",
+#             "HTTP": "127.0.0.1",
+#             "RPC": "127.0.0.1"
+#         },
+#         "Consul": {
+#             "Auth": "",
+#             "ClientAutoJoin": true,
+#             "KeyFile": "",
+#             "Tags": null,
+#             "Token": "",
+#             "Addr": "127.0.0.1:8500",
+#             "CAFile": "",
+#             "EnableSSL": false,
+#             "ServerHTTPCheckName": "Nomad Server HTTP Check",
+#             "ServerRPCCheckName": "Nomad Server RPC Check",
+#             "CertFile": "",
+#             "ClientHTTPCheckName": "Nomad Client HTTP Check",
+#             "Namespace": "",
+#             "VerifySSL": true,
+#             "ServerServiceName": "nomad",
+#             "AllowUnauthenticated": true,
+#             "AutoAdvertise": true,
+#             "ChecksUseAdvertise": false,
+#             "ClientServiceName": "nomad-client",
+#             "GRPCAddr": "",
+#             "ServerAutoJoin": true,
+#             "ServerSerfCheckName": "Nomad Server Serf Check",
+#             "ShareSSL": null,
+#             "Timeout": 5000000000.0
+#         },
+#         "DevMode": true,
+#         "NodeName": "",
+#         "Plugins": null,
+#         "Ports": {
+#             "HTTP": 4646.0,
+#             "RPC": 4647.0,
+#             "Serf": 4648.0
+#         },
+#         "Client": {
+#             "GCMaxAllocs": 50.0,
+#             "HostNetworks": null,
+#             "Servers": null,
+#             "ChrootEnv": {},
+#             "Enabled": true,
+#             "BridgeNetworkSubnet": "",
+#             "DisableRemoteExec": false,
+#             "MinDynamicPort": 20000.0,
+#             "AllocDir": "",
+#             "BridgeNetworkName": "",
+#             "Meta": {
+#                 "connect.gateway_image": "envoyproxy/envoy:v${NOMAD_envoy_version}",
+#                 "connect.log_level": "info",
+#                 "connect.proxy_concurrency": "1",
+#                 "connect.sidecar_image": "envoyproxy/envoy:v${NOMAD_envoy_version}"
+#             },
+#             "NetworkSpeed": 0.0,
+#             "NomadServiceDiscovery": true,
+#             "Artifact": {
+#                 "HgTimeout": "30m",
+#                 "S3Timeout": "30m",
+#                 "GCSTimeout": "30m",
+#                 "GitTimeout": "30m",
+#                 "HTTPMaxSize": "100GB",
+#                 "HTTPReadTimeout": "30m"
+#             },
+#             "ClientMaxPort": 14512.0,
+#             "GCInterval": 600000000000.0,
+#             "GCParallelDestroys": 2.0,
+#             "NoHostUUID": true,
+#             "ClientMinPort": 14000.0,
+#             "NetworkInterface": "lo",
+#             "GCInodeUsageThreshold": 99.0,
+#             "MaxDynamicPort": 32000.0,
+#             "NodeClass": "",
+#             "Options": {
+#                 "driver.raw_exec.enable": "true",
+#                 "driver.docker.volumes": "true",
+#                 "test.tighten_network_timeouts": "true"
+#             },
+#             "Reserved": {
+#                 "MemoryMB": 0.0,
+#                 "ReservedPorts": "",
+#                 "CPU": 0.0,
+#                 "Cores": "",
+#                 "DiskMB": 0.0
+#             },
+#             "BindWildcardDefaultHostNetwork": true,
+#             "CpuCompute": 0.0,
+#             "MaxKillTimeout": "30s",
+#             "TemplateConfig": {
+#                 "ConsulRetry": null,
+#                 "DisableSandbox": false,
+#                 "FunctionBlacklist": null,
+#                 "FunctionDenylist": [
+#                     "plugin",
+#                     "writeToFile"
+#                 ],
+#                 "NomadRetry": null,
+#                 "BlockQueryWaitTime": null,
+#                 "BlockQueryWaitTimeHCL": "",
+#                 "MaxStale": null,
+#                 "MaxStaleHCL": "",
+#                 "VaultRetry": null
+#             },
+#             "GCDiskUsageThreshold": 99.0,
+#             "HostVolumes": null,
+#             "CgroupParent": "",
+#             "MemoryMB": 0.0,
+#             "ReserveableCores": "",
+#             "ServerJoin": {
+#                 "RetryInterval": 30000000000.0,
+#                 "RetryJoin": [],
+#                 "RetryMaxAttempts": 0.0,
+#                 "StartJoin": null
+#             },
+#             "StateDir": "",
+#             "CNIConfigDir": "/opt/cni/config",
+#             "CNIPath": "/opt/cni/bin"
+#         },
+#         "DisableUpdateCheck": false,
+#         "LeaveOnInt": false,
+#         "LogRotateBytes": 0.0,
+#         "EnableDebug": true,
+#         "Region": "global",
+#         "ACL": {
+#             "Enabled": false,
+#             "PolicyTTL": 30000000000.0,
+#             "ReplicationToken": "",
+#             "TokenTTL": 30000000000.0
+#         },
+#         "LogFile": "",
+#         "Sentinel": {
+#             "Imports": null
+#         },
+#         "Telemetry": {
+#             "DisableDispatchedJobSummaryMetrics": false,
+#             "PublishAllocationMetrics": true,
+#             "StatsiteAddr": "",
+#             "CirconusCheckID": "",
+#             "CirconusCheckInstanceID": "",
+#             "CollectionInterval": "1s",
+#             "DataDogAddr": "",
+#             "CirconusCheckSearchTag": "",
+#             "CirconusCheckSubmissionURL": "",
+#             "CirconusSubmissionInterval": "",
+#             "DisableHostname": false,
+#             "CirconusAPIApp": "",
+#             "CirconusAPIToken": "",
+#             "CirconusCheckDisplayName": "",
+#             "CirconusCheckForceMetricActivation": "",
+#             "PrefixFilter": null,
+#             "PrometheusMetrics": true,
+#             "FilterDefault": null,
+#             "PublishNodeMetrics": true,
+#             "CirconusAPIURL": "",
+#             "CirconusBrokerID": "",
+#             "CirconusBrokerSelectTag": "",
+#             "CirconusCheckTags": "",
+#             "DataDogTags": null,
+#             "StatsdAddr": "",
+#             "UseNodeName": false
+#         },
+#         "UI": {
+#             "Vault": {
+#                 "BaseUIURL": ""
+#             },
+#             "Consul": {
+#                 "BaseUIURL": ""
+#             },
+#             "Enabled": true
+#         },
+#         "Audit": {
+#             "Enabled": null,
+#             "Filters": null,
+#             "Sinks": null
+#         },
+#         "Autopilot": {
+#             "CleanupDeadServers": null,
+#             "DisableUpgradeMigration": null,
+#             "EnableCustomUpgrades": null,
+#             "EnableRedundancyZones": null,
+#             "LastContactThreshold": 200000000.0,
+#             "MaxTrailingLogs": 250.0,
+#             "MinQuorum": 0.0,
+#             "ServerStabilizationTime": 10000000000.0
+#         },
+#         "BindAddr": "127.0.0.1",
+#         "Datacenter": "dc1",
+#         "LogLevel": "DEBUG",
+#         "LogRotateDuration": "",
+#         "LogRotateMaxFiles": 0.0,
+#         "Version": {
+#             "Revision": "",
+#             "Version": "1.3.5",
+#             "VersionMetadata": "",
+#             "VersionPrerelease": ""
+#         },
+#         "LeaveOnTerm": false,
+#         "PluginDir": "",
+#         "SyslogFacility": "LOCAL0",
+#         "AdvertiseAddrs": {
+#             "HTTP": "127.0.0.1:4646",
+#             "RPC": "127.0.0.1:4647",
+#             "Serf": "127.0.0.1:4648"
+#         },
+#         "DisableAnonymousSignature": true,
+#         "Limits": {
+#             "HTTPMaxConnsPerClient": 100.0,
+#             "HTTPSHandshakeTimeout": "5s",
+#             "RPCHandshakeTimeout": "5s",
+#             "RPCMaxConnsPerClient": 100.0
+#         },
+#         "LogJson": false,
+#         "Server": {
+#             "MinHeartbeatTTL": 0.0,
+#             "PlanRejectionTracker": {
+#                 "NodeThreshold": 100.0,
+#                 "NodeWindow": 300000000000.0,
+#                 "Enabled": false
+#             },
+#             "StartJoin": [],
+#             "ServerJoin": {
+#                 "StartJoin": null,
+#                 "RetryInterval": 30000000000.0,
+#                 "RetryJoin": [],
+#                 "RetryMaxAttempts": 0.0
+#             },
+#             "DataDir": "",
+#             "DeploymentQueryRateLimit": 0.0,
+#             "RaftProtocol": 3.0,
+#             "RetryInterval": 0.0,
+#             "RetryJoin": [],
+#             "RetryMaxAttempts": 0.0,
+#             "Search": {
+#                 "LimitResults": 100.0,
+#                 "MinTermLength": 2.0,
+#                 "FuzzyEnabled": true,
+#                 "LimitQuery": 20.0
+#             },
+#             "EnabledSchedulers": null,
+#             "JobGCInterval": "",
+#             "JobGCThreshold": "",
+#             "RedundancyZone": "",
+#             "LicenseEnv": "",
+#             "UpgradeVersion": "",
+#             "FailoverHeartbeatTTL": 0.0,
+#             "HeartbeatGrace": 0.0,
+#             "NodeGCThreshold": "",
+#             "RaftBoltConfig": null,
+#             "BootstrapExpect": 1.0,
+#             "DeploymentGCThreshold": "",
+#             "EnableEventBroker": true,
+#             "EventBufferSize": 100.0,
+#             "AuthoritativeRegion": "",
+#             "CSIVolumeClaimGCThreshold": "",
+#             "Enabled": true,
+#             "MaxHeartbeatsPerSecond": 0.0,
+#             "RaftMultiplier": null,
+#             "RejoinAfterLeave": false,
+#             "CSIPluginGCThreshold": "",
+#             "EvalGCThreshold": "",
+#             "NonVotingServer": false,
+#             "NumSchedulers": null,
+#             "DefaultSchedulerConfig": null,
+#             "LicensePath": ""
+#         }
+#     },
+#     "member": {
+#         "Addr": "127.0.0.1",
+#         "DelegateCur": 4,
+#         "DelegateMax": 5,
+#         "DelegateMin": 2,
+#         "Name": "HOSTNAME.global",
+#         "Port": 4648,
+#         "ProtocolCur": 2,
+#         "ProtocolMax": 5,
+#         "ProtocolMin": 1,
+#         "Status": "alive",
+#         "Tags": {
+#             "region": "global",
+#             "build": "1.3.5",
+#             "bootstrap": "1",
+#             "role": "nomad",
+#             "vsn": "1",
+#             "raft_vsn": "3",
+#             "rpc_addr": "127.0.0.1",
+#             "port": "4647",
+#             "dc": "dc1",
+#             "expect": "1",
+#             "id": "dd1798fb-cc99-cb49-fc4f-dfaa318cdaeb"
+#         }
+#     },
+#     "stats": {
+#         "raft": {
+#             "commit_index": "15",
+#             "protocol_version": "3",
+#             "protocol_version_min": "0",
+#             "snapshot_version_max": "1",
+#             "num_peers": "0",
+#             "term": "2",
+#             "snapshot_version_min": "0",
+#             "last_log_term": "2",
+#             "fsm_pending": "0",
+#             "applied_index": "15",
+#             "latest_configuration": "[{Suffrage:Voter ID:dd1798fb-cc99-cb49-fc4f-# dfaa318cdaeb Address:127.0.0.1:4647}]",
+#             "last_contact": "0",
+#             "last_log_index": "15",
+#             "latest_configuration_index": "0",
+#             "last_snapshot_index": "0",
+#             "last_snapshot_term": "0",
+#             "state": "Leader",
+#             "protocol_version_max": "3"
+#         },
+#         "serf": {
+#             "members": "1",
+#             "event_time": "1",
+#             "health_score": "0",
+#             "query_time": "1",
+#             "encrypted": "false",
+#             "coordinate_resets": "0",
+#             "left": "0",
+#             "event_queue": "0",
+#             "query_queue": "0",
+#             "failed": "0",
+#             "member_time": "1",
+#             "intent_queue": "0"
+#         },
+#         "runtime": {
+#             "kernel.name": "linux",
+#             "arch": "amd64",
+#             "version": "go1.19.1",
+#             "max_procs": "32",
+#             "goroutines": "229",
+#             "cpu_count": "32"
+#         },
+#         "vault": {
+#             "token_next_renewal_time": "",
+#             "tracked_for_revoked": "0",
+#             "token_ttl": "0s",
+#             "token_expire_time": "",
+#             "token_last_renewal_time": ""
+#         },
+#         "nomad": {
+#             "server": "true",
+#             "leader": "true",
+#             "leader_addr": "127.0.0.1:4647",
+#             "bootstrap": "true",
+#             "known_regions": "1"
+#         },
+#         "client": {
+#             "known_servers": "127.0.0.1:4647",
+#             "num_allocations": "0",
+#             "last_heartbeat": "344.334288ms",
+#             "heartbeat_ttl": "18.525481644s",
+#             "node_id": "0984fe0c-ec66-947c-9591-946b228bef6a"
+#         }
+#     }
+# }
+#
+# $ nomad node status -json
+# [
+#     {
+#         "Address": "127.0.0.1",
+#         "CreateIndex": 7,
+#         "Datacenter": "dc1",
+#         "Drain": false,
+#         "Drivers": {
+#             "qemu": {
+#                 "Attributes": null,
+#                 "Detected": false,
+#                 "HealthDescription": "",
+#                 "Healthy": false,
+#                 "UpdateTime": "2022-12-12T19:33:29.449697777Z"
+#             },
+#             "exec": {
+#                 "Attributes": null,
+#                 "Detected": false,
+#                 "HealthDescription": "Driver must run as root",
+#                 "Healthy": false,
+#                 "UpdateTime": "2022-12-12T19:33:29.449414346Z"
+#             },
+#             "java": {
+#                 "Attributes": null,
+#                 "Detected": false,
+#                 "HealthDescription": "Driver must run as root",
+#                 "Healthy": false,
+#                 "UpdateTime": "2022-12-12T19:33:29.449423032Z"
+#             },
+#             "raw_exec": {
+#                 "Attributes": {
+#                     "driver.raw_exec": "true"
+#                 },
+#                 "Detected": true,
+#                 "HealthDescription": "Healthy",
+#                 "Healthy": true,
+#                 "UpdateTime": "2022-12-12T19:33:29.449473176Z"
+#             },
+#             "mock_driver": {
+#                 "Attributes": {
+#                     "driver.mock": "true"
+#                 },
+#                 "Detected": true,
+#                 "HealthDescription": "Healthy",
+#                 "Healthy": true,
+#                 "UpdateTime": "2022-12-12T19:33:29.449495047Z"
+#             },
+#             "docker": {
+#                 "Attributes": null,
+#                 "Detected": false,
+#                 "HealthDescription": "Failed to connect to docker daemon",
+#                 "Healthy": false,
+#                 "UpdateTime": "2022-12-12T19:33:29.449609612Z"
+#             }
+#         },
+#         "ID": "0984fe0c-ec66-947c-9591-946b228bef6a",
+#         "LastDrain": null,
+#         "ModifyIndex": 9,
+#         "Name": "HOSTNAME",
+#         "NodeClass": "",
+#         "SchedulingEligibility": "eligible",
+#         "Status": "ready",
+#         "StatusDescription": "",
+#         "Version": "1.3.5"
+#     }
+# ]
