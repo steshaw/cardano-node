@@ -143,81 +143,11 @@ case "$op" in
             msg "OCI image named \"${oci_image_name}:${oci_image_tag}\" created"
         fi
 
-        # Configure `nomad` and the `podman` plugin/task driver.
+        # Create config files for Nomad and the Podman plugin/task driver.
         nomad_create_folders_and_config "$dir"
-        msg "Preparing podman API service for nomad driver \`nomad-driver-podman\` ..."
-        nomad_start_podman_service "$dir"
 
-        # Start `nomad` agent".
-        msg "Starting nomad agent ..."
-        # The Nomad agent is a long running process which runs on every machine
-        # that is part of the Nomad cluster. The behavior of the agent depends
-        # on if it is running in client or server mode. Clients are responsible
-        # for running tasks, while servers are responsible for managing the
-        # cluster.
-        #
-        # The Nomad agent supports multiple configuration files, which can be
-        # provided using the -config CLI flag. The flag can accept either a file
-        # or folder. In the case of a folder, any .hcl and .json files in the
-        # folder will be loaded and merged in lexicographical order. Directories
-        # are not loaded recursively.
-        #   -config=<path>
-        # The path to either a single config file or a directory of config files
-        # to use for configuring the Nomad agent. This option may be specified
-        # multiple times. If multiple config files are used, the values from
-        # each will be merged together. During merging, values from files found
-        # later in the list are merged over values from previously parsed file.
-        #
-        # Running a dual-role agent (client + server) but not "-dev" mode.
-        nomad agent -config="$dir/nomad/config" >> "$dir/nomad/stdout" 2>> "$dir/nomad/stderr" &
-        echo "$!" > "$dir/nomad/nomad.pid"
-        setenvjqstr 'nomad_pid' $(cat $dir/nomad/nomad.pid)
-        msg "Nomad started with PID $(cat $dir/nomad/nomad.pid)"
-
-        # Wait for nomad agent:
-        msg "Waiting for the listening HTTP server ..."
-        local i=0
-        local patience=25
-        until curl -Isf 127.0.0.1:4646 2>&1 | head --lines=1 | grep --quiet "HTTP/1.1"
-        do printf "%3d" $i; sleep 1
-            i=$((i+1))
-            if test $i -ge $patience
-            then echo
-                progress "nomad agent" "$(red FATAL):  workbench:  nomad agent:  patience ran out after ${patience}s, 127.0.0.1:4646"
-                cat "$dir/nomad/stderr"
-                backend_nomad stop-cluster "$dir"
-                fatal "nomad agent startup did not succeed:  check logs"
-            fi
-            echo -ne "\b\b\b"
-        done >&2
-
-        # Create and start the nomad job.
+        # Create the Nomad job file.
         nomad_create_job_file "$dir"
-        msg "Starting nomad job ..."
-        # Upon successful job submission, this command will immediately enter
-        # an interactive monitor. This is useful to watch Nomad's internals make
-        # scheduling decisions and place the submitted work onto nodes. The
-        # monitor will end once job placement is done. It is safe to exit the
-        # monitor early using ctrl+c.
-        # On successful job submission and scheduling, exit code 0 will be
-        # returned. If there are job placement issues encountered (unsatisfiable
-        # constraints, resource exhaustion, etc), then the exit code will be 2.
-        # Any other errors, including client connection issues or internal
-        # errors, are indicated by exit code 1.
-        nomad job run -verbose "$dir/nomad/job-cluster.hcl"
-        # Assuming that `nomad` placement is enough wait.
-        local nomad_alloc_id=$(nomad job allocs -json cluster | jq -r '.[0].ID')
-        setenvjqstr 'nomad_alloc_id' "$nomad_alloc_id"
-        msg "Nomad job allocation ID is: $nomad_alloc_id"
-        # Show `--status` of `supervisorctl` inside the container.
-        local supervisord_url=$(envjqr 'supervisord_url')
-        local container_supervisor_nix=$(  envjqr 'container_supervisor_nix')
-        local container_supervisord_conf=$(envjqr 'container_supervisord_conf')
-        msg "Supervisor status inside container ..."
-        # Print the command used for debugging purposes.
-        msg "'nomad alloc exec --task node-0 \"$nomad_alloc_id\" \"$container_supervisor_nix\"/bin/supervisorctl --serverurl \"$supervisord_url\" --configuration \"$container_supervisord_conf\" status'"
-        # Execute the actual command.
-        nomad alloc exec --task node-0 "$nomad_alloc_id" "$container_supervisor_nix"/bin/supervisorctl --serverurl "$supervisord_url" --configuration "$container_supervisord_conf" status || true
         ;;
 
     describe-run )
@@ -335,6 +265,78 @@ case "$op" in
     start )
         local usage="USAGE: wb nomad $op RUN-DIR"
         local dir=${1:?$usage}; shift
+
+        msg "Preparing podman API service for nomad driver \`nomad-driver-podman\` ..."
+        nomad_start_podman_service "$dir"
+
+        # Start `nomad` agent".
+        msg "Starting nomad agent ..."
+        # The Nomad agent is a long running process which runs on every machine
+        # that is part of the Nomad cluster. The behavior of the agent depends
+        # on if it is running in client or server mode. Clients are responsible
+        # for running tasks, while servers are responsible for managing the
+        # cluster.
+        #
+        # The Nomad agent supports multiple configuration files, which can be
+        # provided using the -config CLI flag. The flag can accept either a file
+        # or folder. In the case of a folder, any .hcl and .json files in the
+        # folder will be loaded and merged in lexicographical order. Directories
+        # are not loaded recursively.
+        #   -config=<path>
+        # The path to either a single config file or a directory of config files
+        # to use for configuring the Nomad agent. This option may be specified
+        # multiple times. If multiple config files are used, the values from
+        # each will be merged together. During merging, values from files found
+        # later in the list are merged over values from previously parsed file.
+        #
+        # Running a dual-role agent (client + server) but not "-dev" mode.
+        nomad agent -config="$dir/nomad/config" >> "$dir/nomad/stdout" 2>> "$dir/nomad/stderr" &
+        echo "$!" > "$dir/nomad/nomad.pid"
+        setenvjqstr 'nomad_pid' $(cat $dir/nomad/nomad.pid)
+        msg "Nomad started with PID $(cat $dir/nomad/nomad.pid)"
+
+        # Wait for nomad agent:
+        msg "Waiting for the listening HTTP server ..."
+        local i=0
+        local patience=25
+        until curl -Isf 127.0.0.1:4646 2>&1 | head --lines=1 | grep --quiet "HTTP/1.1"
+        do printf "%3d" $i; sleep 1
+            i=$((i+1))
+            if test $i -ge $patience
+            then echo
+                progress "nomad agent" "$(red FATAL):  workbench:  nomad agent:  patience ran out after ${patience}s, 127.0.0.1:4646"
+                cat "$dir/nomad/stderr"
+                backend_nomad stop-cluster "$dir"
+                fatal "nomad agent startup did not succeed:  check logs"
+            fi
+            echo -ne "\b\b\b"
+        done >&2
+
+        msg "Starting nomad job ..."
+        # Upon successful job submission, this command will immediately enter
+        # an interactive monitor. This is useful to watch Nomad's internals make
+        # scheduling decisions and place the submitted work onto nodes. The
+        # monitor will end once job placement is done. It is safe to exit the
+        # monitor early using ctrl+c.
+        # On successful job submission and scheduling, exit code 0 will be
+        # returned. If there are job placement issues encountered (unsatisfiable
+        # constraints, resource exhaustion, etc), then the exit code will be 2.
+        # Any other errors, including client connection issues or internal
+        # errors, are indicated by exit code 1.
+        nomad job run -verbose "$dir/nomad/job-cluster.hcl"
+        # Assuming that `nomad` placement is enough wait.
+        local nomad_alloc_id=$(nomad job allocs -json cluster | jq -r '.[0].ID')
+        setenvjqstr 'nomad_alloc_id' "$nomad_alloc_id"
+        msg "Nomad job allocation ID is: $nomad_alloc_id"
+        # Show `--status` of `supervisorctl` inside the container.
+        local supervisord_url=$(envjqr 'supervisord_url')
+        local container_supervisor_nix=$(  envjqr 'container_supervisor_nix')
+        local container_supervisord_conf=$(envjqr 'container_supervisord_conf')
+        msg "Supervisor status inside container ..."
+        # Print the command used for debugging purposes.
+        msg "'nomad alloc exec --task node-0 \"$nomad_alloc_id\" \"$container_supervisor_nix\"/bin/supervisorctl --serverurl \"$supervisord_url\" --configuration \"$container_supervisord_conf\" status'"
+        # Execute the actual command.
+        nomad alloc exec --task node-0 "$nomad_alloc_id" "$container_supervisor_nix"/bin/supervisorctl --serverurl "$supervisord_url" --configuration "$container_supervisord_conf" status || true
 
         if jqtest ".node.tracer" "$dir"/profile.json
         then
@@ -459,6 +461,36 @@ case "$op" in
         ;;
 
     * ) usage_docker;; esac
+}
+
+# Start the `podman` API service needed by `nomad`.
+nomad_start_podman_service() {
+    local dir=$1
+    local podman_socket_path=$(envjqr 'podman_socket_path')
+#    if test -S "$socket"
+#    then
+#        msg "Podman API service was already running"
+#    else
+        # The session is kept open waiting for a new connection for 60 seconds.
+        # https://discuss.hashicorp.com/t/nomad-podman-rhel8-driver-difficulties/21877/4
+        # `--time`: Time until the service session expires in seconds. Use 0
+        # to disable the timeout (default 5).
+        podman system service --time 60 "unix://$podman_socket_path" &
+        local i=0
+        local patience=5
+        while test ! -S "$podman_socket_path"
+        do printf "%3d" $i; sleep 1
+            i=$((i+1))
+            if test $i -ge $patience
+            then echo
+                progress "nomad-driver-podman" "$(red FATAL):  workbench:  nomad-driver-podman:  patience ran out after ${patience}s, socket $podman_socket_path"
+                backend_nomad stop-cluster "$dir"
+                fatal "nomad-driver-podman startup did not succeed:  check logs"
+            fi
+            echo -ne "\b\b\b"
+        done >&2
+#    fi
+    msg "Podman API service started"
 }
 
 # Configure `nomad` and its `podman` plugin / task driver
@@ -751,36 +783,6 @@ consul {
 # defaults to true in Nomad Enterprise.
 disable_update_check = true
 EOF
-}
-
-# Start the `podman` API service needed by `nomad`.
-nomad_start_podman_service() {
-    local dir=$1
-    local podman_socket_path=$(envjqr 'podman_socket_path')
-#    if test -S "$socket"
-#    then
-#        msg "Podman API service was already running"
-#    else
-        # The session is kept open waiting for a new connection for 60 seconds.
-        # https://discuss.hashicorp.com/t/nomad-podman-rhel8-driver-difficulties/21877/4
-        # `--time`: Time until the service session expires in seconds. Use 0
-        # to disable the timeout (default 5).
-        podman system service --time 60 "unix://$podman_socket_path" &
-        local i=0
-        local patience=5
-        while test ! -S "$podman_socket_path"
-        do printf "%3d" $i; sleep 1
-            i=$((i+1))
-            if test $i -ge $patience
-            then echo
-                progress "nomad-driver-podman" "$(red FATAL):  workbench:  nomad-driver-podman:  patience ran out after ${patience}s, socket $podman_socket_path"
-                backend_nomad stop-cluster "$dir"
-                fatal "nomad-driver-podman startup did not succeed:  check logs"
-            fi
-            echo -ne "\b\b\b"
-        done >&2
-#    fi
-    msg "Podman API service started"
 }
 
 # Need to use HCL instead of JSON. The only workaround is to send commands to
