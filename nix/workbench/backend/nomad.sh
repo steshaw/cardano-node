@@ -323,7 +323,7 @@ case "$op" in
         # constraints, resource exhaustion, etc), then the exit code will be 2.
         # Any other errors, including client connection issues or internal
         # errors, are indicated by exit code 1.
-        nomad job run -verbose "$dir/nomad/job-cluster.hcl"
+        nomad job run -verbose "$dir/nomad/job-cluster.hcl" || true
         # Assuming that `nomad` placement is enough wait.
         local nomad_alloc_id=$(nomad job allocs -json cluster | jq -r '.[0].ID')
         setenvjqstr 'nomad_alloc_id' "$nomad_alloc_id"
