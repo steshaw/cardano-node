@@ -426,13 +426,13 @@ case "$op" in
         local dir=${1:?$usage}; shift
         local nomad_alloc_id=$(envjqr 'nomad_alloc_id')
 
-        msg "Stopping generator ..."
+        msg "Stopping generator inside its container ..."
         backend_nomad nomad-alloc-exec-supervisorctl "$dir" generator stop all || true
-        msg "Stopping tracer ..."
+        msg "Stopping tracer inside its container ..."
         backend_nomad nomad-alloc-exec-supervisorctl "$dir" tracer stop all || true
         for node in $(jq_tolist 'keys' "$dir"/node-specs.json)
         do
-            msg "Stopping $node ..."
+            msg "Stopping $node inside its container ..."
             backend_nomad nomad-alloc-exec-supervisorctl "$dir" "$node" stop all || true
         done
 
@@ -678,6 +678,10 @@ server {
   # depending on the cluster size. A value of 1 does not provide any fault
   # tolerance and is not recommended for production use cases.
   bootstrap_expect = 1
+  # Specifies how long a node must be in a terminal state before it is garbage
+  # collected and purged from the system. This is specified using a label suffix
+  # like "30s" or "1h".
+  node_gc_threshold = "60s"
   # Specifies the interval between the job garbage collections. Only jobs who
   # have been terminal for at least job_gc_threshold will be collected. Lowering
   # the interval will perform more frequent but smaller collections. Raising the
@@ -685,11 +689,19 @@ server {
   # time. Reducing this interval is useful if there is a large throughput of
   # tasks, leading to a large set of dead jobs. This is specified using a label
   # suffix like "30s" or "3m". job_gc_interval was introduced in Nomad 0.10.0.
-  job_gc_interval = "15s"
+  job_gc_interval = "2s"
   # Specifies the minimum time a job must be in the terminal state before it is
   # eligible for garbage collection. This is specified using a label suffix like
   # "30s" or "1h".
-  job_gc_threshold = "15s"
+  job_gc_threshold = "2s"
+  # Specifies the minimum time an evaluation must be in the terminal state
+  # before it is eligible for garbage collection. This is specified using a
+  # label suffix like "30s" or "1h".
+  eval_gc_threshold = "2s"
+  # Specifies the minimum time a deployment must be in the terminal state before
+  # it is eligible for garbage collection. This is specified using a label
+  # suffix like "30s" or "1h".
+  deployment_gc_threshold = "2s"
   # Specifies if Nomad will ignore a previous leave and attempt to rejoin the
   # cluster when starting. By default, Nomad treats leave as a permanent intent
   # and does not attempt to join the cluster again when starting. This flag
@@ -702,14 +714,27 @@ server {
 # https://developer.hashicorp.com/nomad/docs/configuration/client
 client {
   enabled = true
+  # Specifies the directory to use for allocation data. By default, this is the
+  # top-level data_dir suffixed with "alloc", like "/opt/nomad/alloc". This must
+  # be an absolute path.
+  alloc_dir = "$dir/nomad/data/alloc"
   # Specifies the directory to use to store client state. By default, this is
   # the top-level "data_dir" suffixed with "client", like "/opt/nomad/client".
   # This must be an absolute path.
   state_dir = "$dir/nomad/data/client"
+  # Specifies an array of addresses to the Nomad servers this client should join.
+  # This list is used to register the client with the server nodes and advertise
+  # the available resources so that the agent can receive work. This may be
+  # specified as an IP address or DNS, with or without the port. If the port is
+  # omitted, the default port of 4647 is used.
+  servers = [ "127.0.0.1:4647" ]
   # Specifies the maximum amount of time a job is allowed to wait to exit.
   # Individual jobs may customize their own kill timeout, but it may not exceed
   # this value.
   max_kill_timeout = "30s"
+  # Specifies the interval at which Nomad attempts to garbage collect terminal
+  # allocation directories.
+  gc_interval = "2s"
 }
 
 # Plugins:
@@ -990,7 +1015,7 @@ task "$name" {
   # running the task, which has a default value of 30 seconds.
   # Avoid: WARN[0120] StopSignal SIGTERM failed to stop container XXX in 10
   # seconds, resorting to SIGKILL
-  kill_timeout = "10s"
+  kill_timeout = "15s"
   # Specifies a configurable kill signal for a task, where the default is SIGINT
   # (or SIGTERM for docker, or CTRL_BREAK_EVENT for raw_exec on Windows). Note
   # that this is only supported for drivers sending signals (currently docker,
