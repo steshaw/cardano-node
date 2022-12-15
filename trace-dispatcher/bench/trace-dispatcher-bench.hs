@@ -56,7 +56,7 @@ stdoutTracers stdoutTracer = do
                         stdoutTracer
                         forwardTracer'
                         Nothing
-                         (NamespaceOuter ["Test"])
+                        ["Test"]
     configureTracers config1 [tr]
     pure tr
 
@@ -68,7 +68,7 @@ filterTracers stdoutTracer = do
                         stdoutTracer
                         forwardTracer'
                         Nothing
-                         (NamespaceOuter ["Test"])
+                        ["Test"]
     configureTracers config2 [tr]
     pure tr
 
@@ -82,7 +82,7 @@ inMemoryTracers = do
                         stdoutTracer'
                         forwardTracer'
                         Nothing
-                         (NamespaceOuter ["Test"])
+                        ["Test"]
     configureTracers config1 [tr]
     pure tr
 
@@ -94,7 +94,7 @@ timeLimitedTracers stdoutTracer = do
                         stdoutTracer
                         forwardTracer'
                         Nothing
-                        (NamespaceOuter ["Test"])
+                        ["Test"]
     configureTracers config3 [tr]
     pure tr
 
@@ -110,7 +110,7 @@ ekgTracers = do
                         stdoutTracer'
                         forwardTracer'
                         Nothing
-                         (NamespaceOuter ["Test"])
+                        ["Test"]
     configureTracers config4 [tr]
     pure tr
 
