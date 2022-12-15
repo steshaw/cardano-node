@@ -101,7 +101,7 @@ mkCardanoTracer' trStdout trForward mbTrEkg tracerPrefix
     addContextAndFilter tr = do
       tr'  <- withDetailsFromConfig tr
       tr'' <- filterSeverityFromConfig tr'
-      pure $  withInnerNames
+      pure $ withInnerNames
              $ appendPrefixNames tracerPrefix
                $ withSeverity
                  $ withPrivacy
@@ -160,7 +160,7 @@ documentCardanoTracer trConfig trace = do
               putStrLn $ "Configuration exception" <> show e
               pure False)
     if res
-      then  catch (documentTracer [trace])
+      then  catch (documentTracer trace)
               (\(e :: SomeException) -> do
                 putStrLn $ "Documentation exception" <> show e
                 pure [])

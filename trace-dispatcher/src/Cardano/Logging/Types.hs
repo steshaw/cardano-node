@@ -81,6 +81,7 @@ data Namespace a = Namespace {
   deriving Eq
 
 instance Show (Namespace a) where
+  show (Namespace [] []) = "emptyNS"
   show (Namespace [] nsInner) =
     unpack $ intercalate (singleton '.') nsInner
   show (Namespace nsPrefix nsInner) =
@@ -204,6 +205,7 @@ data LoggingContext = LoggingContext {
   , lcPrivacy   :: Maybe Privacy
   , lcDetails   :: Maybe DetailLevel
   }
+  deriving Show
 
 emptyLoggingContext :: LoggingContext
 emptyLoggingContext = LoggingContext [] [] Nothing Nothing Nothing

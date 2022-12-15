@@ -79,10 +79,10 @@ unpackDocu (DocuDatapoint b) = b
 -- and an associated DocuResult
 documentTracer :: forall a.
      MetaTrace a
-  => [Trace IO a]
+  => Trace IO a
   -> IO [([Text], DocuResult)]
-documentTracer tracers = do
-    DocCollector docRef <- documentTracersRun tracers
+documentTracer tracer = do
+    DocCollector docRef <- documentTracersRun [tracer]
     items <- fmap Map.toList (liftIO (readIORef docRef))
     let sortedItems = trace (show items) $ sortBy
                         (\ (_,l) (_,r) -> compare (ldNamespace l) (ldNamespace r))

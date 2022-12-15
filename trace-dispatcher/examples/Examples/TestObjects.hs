@@ -107,7 +107,7 @@ instance MetaTrace (TraceForgeEvent blk) where
   severityFor (Namespace _ ["StartLeadershipCheck"]) = Info
   severityFor (Namespace _ ["SlotIsImmutable"]) = Error
   severityFor (Namespace _ ["BlockFromFuture"]) = Error
-  severityFor (Namespace _ other) = error ("TestObject>>severityFor: Unknown namespace" ++ show other)
+  severityFor ns = error ("TestObject>>severityFor: Unknown namespace " ++ show ns)
   privacyFor  (Namespace _ _) = Public
   documentFor (Namespace _ ["StartLeadershipCheck"]) =
     "Start of the leadership check\n\
@@ -141,6 +141,7 @@ instance MetaTrace (TraceForgeEvent blk) where
     \block at the tip of the chain.\n\
     \\n\
     \See also <https://github.com/input-output-hk/ouroboros-network/issues/1462>"
+  documentFor ns = error ("Unknown namespace (documentFor): " <> show ns)
   metricsDocFor (Namespace _ _) = []
   allNamespaces = [ Namespace [] ["StartLeadershipCheck"]
                   , Namespace [] ["SlotIsImmutable"]

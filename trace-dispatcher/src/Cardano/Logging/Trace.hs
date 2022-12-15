@@ -174,11 +174,19 @@ setSeverity s (Trace tr) = Trace $ T.contramap
 withSeverity :: forall m a. (Monad m, MetaTrace a) => Trace m a -> Trace m a
 withSeverity (Trace tr) = Trace $
     T.contramap
-      (\(lc, cont) -> if isJust (lcSeverity lc)
-                        then (lc, cont)
-                        else (lc {lcSeverity =
-                          Just (severityFor (mkInnerNamespace (lcNSInner lc) :: Namespace a))}, cont))
+      (\case
+        (lc, Right e) -> process lc (Right e)
+        (lc, Left c@(Config _)) -> process lc (Left c)
+        (lc, Left d@(TCDocument _ _)) -> process lc (Left d)
+        (lc, Left e) -> (lc, Left e))
       tr
+  where
+    process lc cont =
+      if isJust (lcSeverity lc)
+        then (lc,cont)
+        else (lc {lcSeverity = Just (severityFor (Namespace [] (lcNSInner lc)
+                                                    :: Namespace a))}, cont)
+
 
 --- | Only processes messages further with a privacy greater then the given one
 filterTraceByPrivacy :: (Monad m) =>
@@ -216,12 +224,19 @@ setPrivacy p (Trace tr) = Trace $
 withPrivacy :: forall m a. (Monad m, MetaTrace a) => Trace m a -> Trace m a
 withPrivacy (Trace tr) = Trace $
     T.contramap
-      (\(lc, cont) -> if isJust (lcPrivacy lc)
-                      then (lc, cont)
-                      else (lc {lcPrivacy =
-                        Just (privacyFor (mkInnerNamespace (lcNSInner lc)
-                          :: Namespace a))}, cont))
+      (\case
+        (lc, Right e) -> process lc (Right e)
+        (lc, Left c@(Config _)) -> process lc (Left c)
+        (lc, Left d@(TCDocument _ _)) -> process lc (Left d)
+        (lc, Left e) -> (lc, Left e))
       tr
+  where
+    process lc cont =
+      if isJust (lcPrivacy lc)
+        then (lc,cont)
+        else (lc {lcPrivacy = Just (privacyFor (Namespace [] (lcNSInner lc)
+                                                  :: Namespace a))}, cont)
+
 
 -- | Sets detail level for the messages in this trace
 setDetails :: Monad m => DetailLevel -> Trace m a -> Trace m a
@@ -236,12 +251,19 @@ setDetails p (Trace tr) = Trace $
 withDetails :: forall m a. (Monad m, MetaTrace a) => Trace m a -> Trace m a
 withDetails (Trace tr) = Trace $
   T.contramap
-    (\(lc, cont) -> if isJust (lcDetails lc)
-                          then (lc, cont)
-                          else (lc {lcDetails =
-                            Just (detailsFor (mkInnerNamespace (lcNSInner lc)
-                              :: Namespace a))}, cont))
-    tr
+      (\case
+        (lc, Right e) -> process lc (Right e)
+        (lc, Left c@(Config _)) -> process lc (Left c)
+        (lc, Left d@(TCDocument _ _)) -> process lc (Left d)
+        (lc, Left e) -> (lc, Left e))
+      tr
+  where
+    process lc cont =
+      if isJust (lcDetails lc)
+        then (lc,cont)
+        else (lc {lcDetails = Just (detailsFor (Namespace [] (lcNSInner lc)
+                                                   :: Namespace a))}, cont)
+
 
 -- | Folds the cata function with acc over a.
 -- Uses an MVar to store the state
