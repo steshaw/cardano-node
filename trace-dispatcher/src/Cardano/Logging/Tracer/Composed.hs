@@ -56,10 +56,10 @@ mkCardanoTracer :: forall evt.
   => Trace IO FormattedMessage
   -> Trace IO FormattedMessage
   -> Maybe (Trace IO FormattedMessage)
-  -> Namespace evt
+  -> [Text]
   -> IO (Trace IO evt)
-mkCardanoTracer trStdout trForward mbTrEkg tracerName =
-    mkCardanoTracer' trStdout trForward mbTrEkg tracerName noHook
+mkCardanoTracer trStdout trForward mbTrEkg tracerPrefix =
+    mkCardanoTracer' trStdout trForward mbTrEkg tracerPrefix noHook
   where
     noHook :: Trace IO evt -> IO (Trace IO evt)
     noHook = pure
@@ -72,10 +72,10 @@ mkCardanoTracer' :: forall evt evt1.
   => Trace IO FormattedMessage
   -> Trace IO FormattedMessage
   -> Maybe (Trace IO FormattedMessage)
-  -> Namespace evt
+  -> [Text]
   -> (Trace IO evt1 -> IO (Trace IO evt))
   -> IO (Trace IO evt)
-mkCardanoTracer' trStdout trForward mbTrEkg tracerName
+mkCardanoTracer' trStdout trForward mbTrEkg tracerPrefix
   hook = do
     messageTrace     <- withBackendsFromConfig backendsAndFormat
     messageTrace'    <- withLimitersFromConfig
@@ -83,12 +83,16 @@ mkCardanoTracer' trStdout trForward mbTrEkg tracerName
                           (NT.contramap Limit messageTrace)
     messageTrace''   <- hook messageTrace'
     messageTrace'''  <- addContextAndFilter messageTrace''
-    messageTrace'''' <- maybeSilent tracerName messageTrace'''
+    messageTrace'''' <- maybeSilent tracerPrefix messageTrace'''
+
     let metricsTrace = case mbTrEkg of
                           Nothing -> Trace NT.nullTracer
                           Just ekgTrace -> metricsFormatter "Cardano" ekgTrace
     metricsTrace'    <- hook metricsTrace
-    let metricsTrace'' = filterTrace (\(_,v) -> not (Prelude.null (asMetrics v))) metricsTrace'
+    let metricsTrace'' = filterTrace
+                            (\(_,v) -> not (Prelude.null (asMetrics v)))
+                            metricsTrace'
+
     pure (messageTrace'''' <> metricsTrace'')
 
 
@@ -98,7 +102,7 @@ mkCardanoTracer' trStdout trForward mbTrEkg tracerName
       tr'  <- withDetailsFromConfig tr
       tr'' <- filterSeverityFromConfig tr'
       pure $  withInnerNames
-             $ appendOuterNames (nsGetOuter tracerName)
+             $ appendPrefixNames tracerPrefix
                $ withSeverity
                  $ withPrivacy
                     $ withDetails

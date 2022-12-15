@@ -60,10 +60,10 @@ configureTracers config tracers = do
 -- | Switch off any message of a particular tracer based on the configuration.
 -- If the top tracer is silent and no subtracer is not silent, then switch it off
 maybeSilent :: forall m a. (MonadIO m) =>
-     Namespace a
+     [Text]
   -> Trace m a
   -> m (Trace m a)
-maybeSilent n tr = do
+maybeSilent prefixNames tr = do
     ref  <- liftIO (newIORef False)
     pure $ Trace $ T.arrow $ T.emit $ mkTrace ref
   where
@@ -73,7 +73,7 @@ maybeSilent n tr = do
         then pure ()
         else T.traceWith (unpackTrace tr) (lc, Right a)
     mkTrace ref (lc, Left (Config c)) = do
-      let val = isSilentTracer c n
+      let val = isSilentTracer c (Namespace prefixNames [])
       liftIO $ writeIORef ref val
       T.traceWith (unpackTrace tr) (lc,  Left (Config c))
     mkTrace ref (lc, Left Reset) = do
@@ -123,7 +123,7 @@ withNamespaceConfig name extract withConfig tr = do
           T.traceWith
             (unpackTrace tt) (lc, Right a)
         Left (cmap, Just v) ->
-          case Map.lookup (lcNSOuter lc ++ lcNSInner lc) cmap of
+          case Map.lookup (lcNSPrefix lc ++ lcNSInner lc) cmap of
                 Just val -> do
                   tt <- withConfig (Just val) tr
                   T.traceWith (unpackTrace tt) (lc, Right a)
@@ -138,9 +138,9 @@ withNamespaceConfig name extract withConfig tr = do
       T.traceWith (unpackTrace tt) (lc, Left Reset)
 
     mkTrace ref (lc, Left (Config c)) = do
-      !val <- extract c (mkNamespace (lcNSOuter lc) (lcNSInner lc))
+      !val <- extract c (mkNamespace (lcNSPrefix lc) (lcNSInner lc))
       eitherConf <- liftIO $ readIORef ref
-      let nst = lcNSOuter lc ++ lcNSInner lc
+      let nst = lcNSPrefix lc ++ lcNSInner lc
       case eitherConf of
         Left (cmap, Nothing) ->
           case Map.lookup nst cmap of
@@ -166,7 +166,7 @@ withNamespaceConfig name extract withConfig tr = do
 
     mkTrace ref (lc, Left Optimize) = do
       eitherConf <- liftIO $ readIORef ref
-      let nst = lcNSOuter lc ++ lcNSInner lc
+      let nst = lcNSPrefix lc ++ lcNSInner lc
       case eitherConf of
         Left (cmap, Nothing) ->
           case nub (Map.elems cmap) of
@@ -198,7 +198,7 @@ withNamespaceConfig name extract withConfig tr = do
                                   ++ show nst
     mkTrace ref (lc, Left dc@TCDocument {}) = do
       eitherConf <- liftIO $ readIORef ref
-      let nst = lcNSOuter lc ++ lcNSInner lc
+      let nst = lcNSPrefix lc ++ lcNSInner lc
       case eitherConf of
         Right val -> do
           tt <- withConfig (Just val) tr
@@ -252,11 +252,11 @@ withDetailsFromConfig =
 withBackendsFromConfig :: (MonadIO m) =>
   (Maybe [BackendConfig] -> Trace m FormattedMessage -> m (Trace m a))
   -> m (Trace m a)
-withBackendsFromConfig routerAndFormatter =
+withBackendsFromConfig rappendPrefixNameAndFormatter =
   withNamespaceConfig
     "backends"
     getBackends'
-    routerAndFormatter
+    rappendPrefixNameAndFormatter
     (Trace T.nullTracer)
 
 data Limiter m a = Limiter Text Double (Trace m a)
@@ -368,7 +368,7 @@ getLimiterSpec :: TraceConfig -> Namespace a -> Maybe (Text, Double)
 getLimiterSpec config ns = getOption limiterSelector config (nsGetComplete ns)
   where
     limiterSelector :: ConfigOption -> Maybe (Text, Double)
-    limiterSelector (ConfLimiter f) = Just (intercalate "." (nsGetOuter ns ++ nsGetInner ns), f)
+    limiterSelector (ConfLimiter f) = Just (intercalate "." (nsGetPrefix ns ++ nsGetInner ns), f)
     limiterSelector _               = Nothing
 
 -- | Searches in the config to find an option

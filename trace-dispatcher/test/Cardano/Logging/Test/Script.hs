@@ -45,7 +45,7 @@ runScriptSimple time oracle = do
                         stdoutTracer'
                         forwardTracer'
                         (Just ekgTracer')
-                        (Namespace ["Test"] [])
+                        ["Test"]
     configureTracers conf [tr]
     let sortedMsgs = sort msgs
     let (msgsWithIds,_) = withMessageIds 0 sortedMsgs
@@ -86,19 +86,19 @@ runScriptMultithreaded time oracle = do
                           stdoutTracer'
                           forwardTracer'
                           (Just ekgTracer')
-                          (Namespace ["Test"] [])
+                          ["Test"]
       configureTracers conf [tr]
       let sortedMsgs1 = sort msgs1
-      let (msgsWithIds1,_) = withMessageIds 0 sortedMsgs1
-      let timedMessages1 = map (withTimeFactor time) msgsWithIds1
-      let start1 = length timedMessages1
-      let sortedMsgs2 = sort msgs2
-      let (msgsWithIds2,_) = withMessageIds start1 sortedMsgs2
-      let timedMessages2 = map (withTimeFactor time) msgsWithIds2
-      let start2 = start1 + length timedMessages2
-      let sortedMsgs3 = sort msgs3
-      let (msgsWithIds3,_) = withMessageIds start2 sortedMsgs3
-      let timedMessages3 = map (withTimeFactor time) msgsWithIds3
+          (msgsWithIds1,_) = withMessageIds 0 sortedMsgs1
+          timedMessages1 = map (withTimeFactor time) msgsWithIds1
+          start1 = length timedMessages1
+          sortedMsgs2 = sort msgs2
+          (msgsWithIds2,_) = withMessageIds start1 sortedMsgs2
+          timedMessages2 = map (withTimeFactor time) msgsWithIds2
+          start2 = start1 + length timedMessages2
+          sortedMsgs3 = sort msgs3
+          (msgsWithIds3,_) = withMessageIds start2 sortedMsgs3
+          timedMessages3 = map (withTimeFactor time) msgsWithIds3
 
       children :: MVar [MVar (Either SomeException ())] <- newMVar []
       _ <- forkChild children (playIt (Script timedMessages1) tr 0.0)
@@ -153,19 +153,19 @@ runScriptMultithreadedWithReconfig time oracle = do
                           stdoutTracer'
                           forwardTracer'
                           (Just ekgTracer')
-                          (Namespace ["Test"] [])
+                          ["Test"]
       configureTracers conf [tr]
       let sortedMsgs1 = sort msgs1
-      let (msgsWithIds1,_) = withMessageIds 0 sortedMsgs1
-      let timedMessages1 = map (withTimeFactor time) msgsWithIds1
-      let start1 = length timedMessages1
-      let sortedMsgs2 = sort msgs2
-      let (msgsWithIds2,_) = withMessageIds start1 sortedMsgs2
-      let timedMessages2 = map (withTimeFactor time) msgsWithIds2
-      let start2 = start1 + length timedMessages2
-      let sortedMsgs3 = sort msgs3
-      let (msgsWithIds3,_) = withMessageIds start2 sortedMsgs3
-      let timedMessages3 = map (withTimeFactor time) msgsWithIds3
+          (msgsWithIds1,_) = withMessageIds 0 sortedMsgs1
+          timedMessages1 = map (withTimeFactor time) msgsWithIds1
+          start1 = length timedMessages1
+          sortedMsgs2 = sort msgs2
+          (msgsWithIds2,_) = withMessageIds start1 sortedMsgs2
+          timedMessages2 = map (withTimeFactor time) msgsWithIds2
+          start2 = start1 + length timedMessages2
+          sortedMsgs3 = sort msgs3
+          (msgsWithIds3,_) = withMessageIds start2 sortedMsgs3
+          timedMessages3 = map (withTimeFactor time) msgsWithIds3
 
       children :: MVar [MVar (Either SomeException ())] <- newMVar []
       _ <- forkChild children (playIt (Script timedMessages1) tr 0.0)
@@ -218,7 +218,7 @@ runScriptMultithreadedWithConstantReconfig time oracle = do
                           stdoutTracer'
                           forwardTracer'
                           (Just ekgTracer')
-                          (Namespace ["Test"] [])
+                          ["Test"]
       configureTracers conf1 [tr]
       let sortedMsgs1 = sort msgs1
       let (msgsWithIds1,_) = withMessageIds 0 sortedMsgs1

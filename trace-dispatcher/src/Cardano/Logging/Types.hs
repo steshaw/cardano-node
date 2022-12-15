@@ -20,9 +20,9 @@ module Cardano.Logging.Types (
   , Namespace(..)
   , mkNamespace
   , mkInnerNamespace
-  , nsReplaceOuter
+  , nsReplacePrefix
   , nsReplaceInner
-  , nsGetOuter
+  , nsGetPrefix
   , nsGetInner
   , nsGetComplete
   , MetaTrace(..)
@@ -76,15 +76,15 @@ import           Ouroboros.Network.Util.ShowProxy (ShowProxy (..))
 -- A namespace can as well appear with the tracer name (e.g. "ChainDB.OpenEvent.OpenedDB"),
 -- or more prefixes, in this moment it is a NamespaceOuter is used
 data Namespace a = Namespace {
-    nsOuter :: [Text]
+    nsPrefix :: [Text]
   , nsInner :: [Text]}
   deriving Eq
 
 instance Show (Namespace a) where
   show (Namespace [] nsInner) =
     unpack $ intercalate (singleton '.') nsInner
-  show (Namespace nsOuter nsInner) =
-    unpack $ intercalate (singleton '.') (nsOuter ++ nsInner)
+  show (Namespace nsPrefix nsInner) =
+    unpack $ intercalate (singleton '.') (nsPrefix ++ nsInner)
 
 mkNamespace :: [Text] -> [Text] -> Namespace a
 mkNamespace = Namespace
@@ -92,8 +92,8 @@ mkNamespace = Namespace
 mkInnerNamespace :: [Text] -> Namespace a
 mkInnerNamespace = Namespace []
 
-nsReplaceOuter :: Namespace a -> [Text] -> Namespace a
-nsReplaceOuter (Namespace _ i) tl =  Namespace tl i
+nsReplacePrefix :: Namespace a -> [Text] -> Namespace a
+nsReplacePrefix (Namespace _ i) tl =  Namespace tl i
 
 nsReplaceInner :: Namespace a -> [Text] -> Namespace a
 nsReplaceInner (Namespace o _) =  Namespace o
@@ -101,8 +101,8 @@ nsReplaceInner (Namespace o _) =  Namespace o
 nsGetInner :: Namespace a -> [Text]
 nsGetInner = nsInner
 
-nsGetOuter :: Namespace a -> [Text]
-nsGetOuter = nsOuter
+nsGetPrefix :: Namespace a -> [Text]
+nsGetPrefix = nsPrefix
 
 nsGetComplete :: Namespace a -> [Text]
 nsGetComplete (Namespace [] i) = i
@@ -199,7 +199,7 @@ instance Show (DocMsg a) where
 -- | Context any log message carries
 data LoggingContext = LoggingContext {
     lcNSInner   :: [Text]
-  , lcNSOuter   :: [Text]
+  , lcNSPrefix  :: [Text]
   , lcSeverity  :: Maybe SeverityS
   , lcPrivacy   :: Maybe Privacy
   , lcDetails   :: Maybe DetailLevel

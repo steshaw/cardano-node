@@ -35,9 +35,9 @@ tracers :: MonadIO m => m (Trace m TestMessage, Trace m TestMessage, Trace m Tes
 tracers  = do
   t <-  standardTracer
   t0 <- humanFormatter True (Just "cardano") t
-  t1 <- withInnerNames . appendOuterName "tracer1" <$> filterSeverityFromConfig t0
-  t2 <- withInnerNames . appendOuterName "tracer2" <$> filterSeverityFromConfig t0
-  t3 <- withInnerNames . appendOuterName "tracer3" <$> filterSeverityFromConfig t0
+  t1 <- withInnerNames . appendPrefixName "tracer1" <$> filterSeverityFromConfig t0
+  t2 <- withInnerNames . appendPrefixName "tracer2" <$> filterSeverityFromConfig t0
+  t3 <- withInnerNames . appendPrefixName "tracer3" <$> filterSeverityFromConfig t0
   pure (t1, t2, t3)
 
 config1 :: TraceConfig

@@ -40,7 +40,7 @@ import Debug.Trace
 addDocumentedNamespace  :: [Text] -> Documented a -> Documented a
 addDocumentedNamespace  tl (Documented list) =
   Documented $ map
-    (\ dm@DocMsg {} -> dm {dmNamespace = nsReplaceOuter (dmNamespace dm) tl})
+    (\ dm@DocMsg {} -> dm {dmNamespace = nsReplacePrefix (dmNamespace dm) tl})
     list
 
 -- | Convenience function
@@ -88,7 +88,7 @@ documentTracer tracers = do
                         (\ (_,l) (_,r) -> compare (ldNamespace l) (ldNamespace r))
                         items
     let messageDocs = map (\(i, ld) -> case ldNamespace ld of
-                                []     -> (["No NamespaceOuter"], documentItem (i, ld))
+                                []     -> (["No prefix namespace"], documentItem (i, ld))
                                 (hn:_) -> (hn, documentItem (i, ld))) sortedItems
         metricsItems = map snd $ filter (not . Map.null . ldMetricsDoc . snd) sortedItems
         metricsDocs = documentMetrics metricsItems
@@ -130,7 +130,7 @@ documentTracer tracers = do
 
     namespacesBuilder :: [[Text]] -> Builder
     namespacesBuilder [ns] = namespaceBuilder ns
-    namespacesBuilder []   = fromText "__Warning__: NamespaceOuter missing"
+    namespacesBuilder []   = fromText "__Warning__: namespace missing"
     namespacesBuilder nsl  =
       mconcat (intersperse (singleton '\n')(map namespaceBuilder nsl))
 
@@ -150,7 +150,7 @@ documentTracer tracers = do
     propertiesBuilder :: LogDoc -> Builder
     propertiesBuilder LogDoc {..} =
         case ldSeverityCoded of
-          Just s  -> fromText "> Severity:   " <> asCode (fromString (show s)) <> "\n"
+          Just s  -> fromText "Severity:  " <> asCode (fromString (show s)) <> "\n"
           Nothing -> fromText "Severity missing" <> "\n"
       <>
         case ldPrivacyCoded of
@@ -158,18 +158,21 @@ documentTracer tracers = do
           Nothing -> fromText "nPrivacy missing" <> "\n"
       <>
         case ldDetailsCoded of
-          Just d  -> fromText "Detail level:   " <> asCode (fromString (show d)) <> "\n"
+          Just d  -> fromText "Details:   " <> asCode (fromString (show d)) <> "\n"
           Nothing -> fromText "nPrivacy missing" <> "\n"
 
     configBuilder :: LogDoc -> Builder
     configBuilder LogDoc {..} =
       fromText "From current configuration:\n"
       <> case nub ldDetails of
-          []  -> fromText "Details:   " <> asCode (fromString (show DNormal))
-          [d] -> fromText "Details:   " <> asCode (fromString (show d))
+          []  -> mempty
+          [d] -> if Just d /= ldDetailsCoded
+                    then fromText "Details:   "
+                            <> asCode (fromString (show d))
+                    else mempty
           l   -> fromText "Details:   "
-                  <> mconcat (intersperse (singleton ',')
-                        (map (asCode . fromString . show) l))
+                  <> mconcat (intersperse (fromText ",\n      ")
+                               (map (asCode . fromString . show) l))
       <> fromText "\n"
       <> backendsBuilder (nub ldBackends)
       <> fromText "\n"
@@ -320,7 +323,7 @@ docIt backend (LoggingContext {..},
         Map.insert
           idx
           ((\e -> e { ldBackends  = backend : ldBackends e
-                    , ldNamespace = nub ((lcNSOuter ++ lcNSInner) : ldNamespace e)
+                    , ldNamespace = nub ((lcNSPrefix ++ lcNSInner) : ldNamespace e)
                     , ldDetails        = case lcDetails of
                                       Nothing -> ldDetails e
                                       Just d  -> d : ldDetails e
@@ -340,7 +343,7 @@ docItDatapoint _backend (LoggingContext {..},
   liftIO $ modifyIORef docRef (\ docMap ->
       Map.insert
         idx
-        ((\e -> e { ldNamespace = nub ((lcNSOuter ++ lcNSInner) : ldNamespace e)
+        ((\e -> e { ldNamespace = nub ((lcNSPrefix ++ lcNSInner) : ldNamespace e)
                   , ldBackends  = [DatapointBackend]
                   })
           (case Map.lookup idx docMap of

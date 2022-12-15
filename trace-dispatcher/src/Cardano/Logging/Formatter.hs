@@ -47,10 +47,10 @@ metricsFormatter application (Trace tr) =
       \ case
         (lc, Right v) ->
           let metrics = asMetrics v
-          in T.traceWith tr (lc { lcNSOuter = application : lcNSOuter lc}
+          in T.traceWith tr (lc { lcNSPrefix = application : lcNSPrefix lc}
                             , Right (FormattedMetrics metrics))
         (lc, Left ctrl) ->
-          T.traceWith tr (lc { lcNSOuter = application : lcNSOuter lc}
+          T.traceWith tr (lc { lcNSPrefix = application : lcNSPrefix lc}
                             , Left ctrl)
 
 -- | Format this trace as TraceObject for the trace forwarder
@@ -72,16 +72,16 @@ forwardFormatter condApplication (Trace tr) = do
           let fh = forHuman v
               details = fromMaybe DNormal (lcDetails lc)
               fm = forMachine details v
-              nlc = lc { lcNSOuter = case condApplication of
-                                                  Just app -> app : lcNSOuter lc
-                                                  Nothing  -> lcNSOuter lc}
+              nlc = lc { lcNSPrefix = case condApplication of
+                                                  Just app -> app : lcNSPrefix lc
+                                                  Nothing  -> lcNSPrefix lc}
               to = TraceObject {
                       toHuman     = if fh == "" then Nothing else Just fh
                     , toMachine   = if fm == mempty then Nothing else
                                     Just
                                       $ replace "\\" "\\\\"
                                       $ decodeUtf8 (BS.toStrict (AE.encode fm))
-                    , toNamespace = lcNSOuter nlc ++ lcNSInner lc
+                    , toNamespace = lcNSPrefix nlc ++ lcNSInner lc
                     , toSeverity  = fromMaybe Info (lcSeverity lc)
                     , toDetails   = fromMaybe DNormal (lcDetails lc)
                     , toTimestamp = time
@@ -91,9 +91,9 @@ forwardFormatter condApplication (Trace tr) = do
           T.traceWith tr ( nlc
                          , Right (FormattedForwarder to))
         (lc, Left ctrl) -> do
-          T.traceWith tr (lc { lcNSOuter = case condApplication of
-                                              Just app -> app : lcNSOuter lc
-                                              Nothing  -> lcNSOuter lc}
+          T.traceWith tr (lc { lcNSPrefix = case condApplication of
+                                              Just app -> app : lcNSPrefix lc
+                                              Nothing  -> lcNSPrefix lc}
                             , Left ctrl)
 
 -- | Format this trace for human readability
@@ -115,14 +115,14 @@ humanFormatter withColor condApplication (Trace tr) = do
         (lc, Right v) -> do
           let fh = forHuman v
           text <- liftIO $ formatContextHuman withColor hn condApplication lc fh
-          T.traceWith tr (lc { lcNSOuter = case condApplication of
-                                              Just app -> app : lcNSOuter lc
-                                              Nothing  -> lcNSOuter lc}
+          T.traceWith tr (lc { lcNSPrefix = case condApplication of
+                                              Just app -> app : lcNSPrefix lc
+                                              Nothing  -> lcNSPrefix lc}
                              , Right (FormattedHuman withColor text))
         (lc, Left ctrl) -> do
-          T.traceWith tr (lc { lcNSOuter = case condApplication of
-                                              Just app -> app : lcNSOuter lc
-                                              Nothing  -> lcNSOuter lc}
+          T.traceWith tr (lc { lcNSPrefix = case condApplication of
+                                              Just app -> app : lcNSPrefix lc
+                                              Nothing  -> lcNSPrefix lc}
                              , Left ctrl)
 
 formatContextHuman ::
@@ -146,8 +146,8 @@ formatContextHuman withColor hostname condApplication LoggingContext {..}  txt =
                       <> singleton ':'
                       <> mconcat (intersperse (singleton '.')
                           (case condApplication of
-                            Just app -> map fromText (app : lcNSOuter ++ lcNSInner)
-                            Nothing  -> map fromText (lcNSOuter ++ lcNSInner)))
+                            Just app -> map fromText (app : lcNSPrefix ++ lcNSInner)
+                            Nothing  -> map fromText (lcNSPrefix ++ lcNSInner)))
 
       tadd     = fromText " ("
                   <> fromString (show severity)
@@ -183,15 +183,15 @@ machineFormatter condApplication (Trace tr) = do
         (lc, Right v) -> do
           let detailLevel = fromMaybe DNormal (lcDetails lc)
           obj <- liftIO $ formatContextMachine hn condApplication lc (forMachine detailLevel v)
-          T.traceWith tr (lc { lcNSOuter = case condApplication of
-                                              Just app -> app : lcNSOuter lc
-                                              Nothing  -> lcNSOuter lc}
+          T.traceWith tr (lc { lcNSPrefix = case condApplication of
+                                              Just app -> app : lcNSPrefix lc
+                                              Nothing  -> lcNSPrefix lc}
                          , Right (FormattedMachine (decodeUtf8 (BS.toStrict
                                 (AE.encodingToLazyByteString obj)))))
         (lc, Left c) -> do
-          T.traceWith tr (lc { lcNSOuter = case condApplication of
-                                              Just app -> app : lcNSOuter lc
-                                              Nothing  -> lcNSOuter lc}
+          T.traceWith tr (lc { lcNSPrefix = case condApplication of
+                                              Just app -> app : lcNSPrefix lc
+                                              Nothing  -> lcNSPrefix lc}
                          , Left c)
 
 formatContextMachine ::
@@ -208,8 +208,8 @@ formatContextMachine hostname condApplication LoggingContext {..} obj = do
                     ((stripPrefix "ThreadId " . pack . show) thid)
       ns       = mconcat (intersperse (singleton '.')
                      (case condApplication of
-                       Just app -> map fromText ((app : lcNSOuter) ++ lcNSInner)
-                       Nothing  -> map fromText (lcNSOuter ++ lcNSInner)))
+                       Just app -> map fromText ((app : lcNSPrefix) ++ lcNSInner)
+                       Nothing  -> map fromText (lcNSPrefix ++ lcNSInner)))
       ts       = pack $ formatTime defaultTimeLocale "%F %H:%M:%S%4QZ" time
   pure $ AE.pairs $    "at"      .= ts
                     <> "ns"      .= toStrict (toLazyText ns)

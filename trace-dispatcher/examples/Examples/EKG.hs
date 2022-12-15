@@ -38,7 +38,7 @@ testEKG = do
     tracer <- ekgTracer (Right server)
     let formattedTracer = metricsFormatter "cardano" tracer
     configureTracers emptyTraceConfig [formattedTracer]
-    loop (appendOuterName "ekg1" formattedTracer) 1
+    loop (appendPrefixName "ekg1" formattedTracer) 1
   where
     loop :: Trace IO Measure -> Int -> IO ()
     loop tr count = do

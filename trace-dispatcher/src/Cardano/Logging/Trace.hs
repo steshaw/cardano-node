@@ -10,8 +10,8 @@ module Cardano.Logging.Trace (
   , filterTraceMaybe
   , filterTraceBySeverity
   , withLoggingContext
-  , appendOuterName
-  , appendOuterNames
+  , appendPrefixName
+  , appendPrefixNames
   , appendInnerName
   , appendInnerNames
   , withInnerNames
@@ -123,11 +123,11 @@ withLoggingContext lc (Trace tr) = Trace $
 -- | Appends a name to the context.
 -- E.g. appendName "specific" $ appendName "middle" $ appendName "general" tracer
 -- give the result: `general.middle.specific`.
-appendOuterName :: Monad m => Text -> Trace m a -> Trace m a
-appendOuterName name (Trace tr) = Trace $
+appendPrefixName :: Monad m => Text -> Trace m a -> Trace m a
+appendPrefixName name (Trace tr) = Trace $
     T.contramap
       (\
-        (lc, cont) -> (lc {lcNSOuter = name : lcNSOuter lc}, cont))
+        (lc, cont) -> (lc {lcNSPrefix = name : lcNSPrefix lc}, cont))
       tr
 
 appendInnerName :: Monad m => Text -> Trace m a -> Trace m a
@@ -138,11 +138,11 @@ appendInnerName name (Trace tr) = Trace $
       tr
 
 -- | Appends all names to the context.
-appendOuterNames :: Monad m => [Text] -> Trace m a -> Trace m a
-appendOuterNames names (Trace tr) = Trace $
+appendPrefixNames :: Monad m => [Text] -> Trace m a -> Trace m a
+appendPrefixNames names (Trace tr) = Trace $
     T.contramap
       (\
-        (lc, cont) -> (lc {lcNSOuter = names ++ lcNSOuter lc}, cont))
+        (lc, cont) -> (lc {lcNSPrefix = names ++ lcNSPrefix lc}, cont))
       tr
 
 -- | Appends all names to the context.
