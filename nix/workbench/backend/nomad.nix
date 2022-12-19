@@ -73,8 +73,8 @@ let
               inherit pkgs lib stateDir;
               unixHttpServerPort = "/tmp/supervisor.sock";
             };
-        nomadConf =
-          import ./nomad-conf.nix
+        ociImages =
+          import ./oci-images.nix
             { inherit pkgs;
               inherit
                 (pkgs.cardanoNodePackages)
@@ -84,7 +84,7 @@ let
         (rec {
           inherit supervisorConfPath;
           # All In One
-          clusterImage = nomadConf.clusterImage;
+          clusterImage = ociImages.clusterImage;
           clusterImageCopyToPodman = clusterImage.copyToPodman;
           clusterImageName = clusterImage.imageName;
           clusterImageTag = clusterImage.imageTag;
