@@ -83,7 +83,7 @@ mkCardanoTracer' trStdout trForward mbTrEkg tracerPrefix
                           (NT.contramap Limit messageTrace)
     messageTrace''   <- hook messageTrace'
     messageTrace'''  <- addContextAndFilter messageTrace''
-    messageTrace'''' <- maybeSilent tracerPrefix messageTrace'''
+    messageTrace'''' <- maybeSilent isSilentTracer tracerPrefix messageTrace'''
 
     let metricsTrace = case mbTrEkg of
                           Nothing -> Trace NT.nullTracer
@@ -92,8 +92,9 @@ mkCardanoTracer' trStdout trForward mbTrEkg tracerPrefix
     let metricsTrace'' = filterTrace
                             (\(_,v) -> not (Prelude.null (asMetrics v)))
                             metricsTrace'
+    metricsTrace'''  <- maybeSilent hasNoMetrics tracerPrefix metricsTrace''
 
-    pure (messageTrace'''' <> metricsTrace'')
+    pure (messageTrace'''' <> metricsTrace''')
 
 
   where

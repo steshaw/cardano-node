@@ -13,6 +13,8 @@ module Cardano.Logging.Configuration
   , withLimitersFromConfig
 
   , maybeSilent
+  , isSilentTracer
+  , hasNoMetrics
 
   , getSeverity
   , getDetails
@@ -23,7 +25,7 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import qualified Control.Tracer as T
 import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import           Data.List (isPrefixOf, maximumBy, nub)
+import           Data.List (maximumBy, nub)
 import qualified Data.Map as Map
 import           Data.Maybe (fromMaybe, mapMaybe)
 import           Data.Text (Text, intercalate, unpack)
@@ -62,10 +64,11 @@ configureTracers config tracers = do
 -- | Switch off any message of a particular tracer based on the configuration.
 -- If the top tracer is silent and no subtracer is not silent, then switch it off
 maybeSilent :: forall m a. (MonadIO m) =>
-     [Text]
+   ( TraceConfig -> Namespace a -> Bool)
+  -> [Text]
   -> Trace m a
   -> m (Trace m a)
-maybeSilent prefixNames tr = do
+maybeSilent selectorFunc prefixNames tr = do
     ref  <- liftIO (newIORef False)
     pure $ Trace $ T.arrow $ T.emit $ mkTrace ref
   where
@@ -75,7 +78,7 @@ maybeSilent prefixNames tr = do
         then pure ()
         else T.traceWith (unpackTrace tr) (lc, Right a)
     mkTrace ref (lc, Left (Config c)) = do
-      let val = isSilentTracer c (Namespace prefixNames [])
+      let val = selectorFunc c (Namespace prefixNames [] :: Namespace a)
       liftIO $ writeIORef ref val
       T.traceWith (unpackTrace tr) (lc,  Left (Config c))
     mkTrace ref (lc, Left Reset) = do
@@ -84,21 +87,27 @@ maybeSilent prefixNames tr = do
     mkTrace _ref (lc, Left other) =
       T.traceWith (unpackTrace tr) (lc,  Left other)
 
--- If the top tracer is silent and any subtracer is not silent, it is not
-isSilentTracer :: TraceConfig -> Namespace a -> Bool
-isSilentTracer tc ns =
-    let nst = nsGetComplete ns
-    in (getSeverity tc ns == SeverityF Nothing)
-        &&
-          (let  entries  = filter (\ (nsf, _opts) -> nst `isPrefixOf` nsf)
-                                $ Map.toList (tcOptions tc)
-                blockers = filter (\ (_nsf, opts) -> not (any filterOpts opts)) entries
-          in null blockers)
+-- When all messages are filtered out, it is silent
+isSilentTracer :: forall a. MetaTrace a => TraceConfig -> Namespace a -> Bool
+isSilentTracer tc (Namespace prefixNS _) =
+    let allNS = allNamespaces :: [Namespace a]
+    in all (\ (Namespace _ innerNS) ->
+                    isFiltered (Namespace prefixNS innerNS :: Namespace a))
+           allNS
   where
-      filterOpts (ConfSeverity (SeverityF (Just _))) = True
-      filterOpts _ = False
+    isFiltered :: Namespace a -> Bool
+    isFiltered ns =
+      let msgSeverity    = severityFor ns
+          severityFilter = getSeverity tc ns
+      in case severityFilter of
+            SeverityF Nothing -> True -- silent config
+            SeverityF (Just sevF) -> sevF > msgSeverity
 
-
+-- When all messages are filtered out, it is silent
+hasNoMetrics :: forall a. MetaTrace a => TraceConfig -> Namespace a -> Bool
+hasNoMetrics _tc _ns =
+    let allNS = allNamespaces :: [Namespace a]
+    in all (null . metricsDocFor) allNS
 
 -- | Take a selector function called 'extract'.
 -- Take a function from trace to trace with this config dependent value.
