@@ -73,7 +73,7 @@ let
               inherit pkgs lib stateDir;
               unixHttpServerPort = "/tmp/supervisor.sock";
             };
-        ociImages =
+        ociImage =
           import ./oci-images.nix
             { inherit pkgs;
               inherit
@@ -84,7 +84,7 @@ let
         (rec {
           inherit supervisorConfPath;
           # All In One
-          clusterImage = ociImages.clusterImage;
+          clusterImage = ociImage.clusterImage;
           clusterImageCopyToPodman = clusterImage.copyToPodman;
           clusterImageName = clusterImage.imageName;
           clusterImageTag = clusterImage.imageTag;
