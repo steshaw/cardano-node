@@ -636,7 +636,7 @@ runGenesisCreateCardano (GenesisDir rootdir)
                       (toByronRequiresNetworkMagic network)
     byronBalance = TestnetBalanceOptions
         { tboRichmen = genNumGenesisKeys
-        , tboPoors = 1
+        , tboPoors = _genNumUTxOKeys
         , tboTotalBalance = fromMaybe zeroLovelace $ toByronLovelace (fromMaybe 0 mAmount)
         , tboRichmenShare = 0
         }
@@ -1351,4 +1351,3 @@ readProtocolParameters (ProtocolParamsFile fpath) = do
   pparams <- handleIOExceptT (ProtocolParamsErrorFile . FileIOError fpath) $ LBS.readFile fpath
   firstExceptT (ProtocolParamsErrorJSON fpath . Text.pack) . hoistEither $
     Aeson.eitherDecode' pparams
-
