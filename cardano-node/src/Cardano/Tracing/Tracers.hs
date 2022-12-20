@@ -332,7 +332,7 @@ mkTracers blockConfig tOpts@(TracingOnLegacy trSel) tr nodeKern ekgDirect enable
     -- TODO: startupTracer should ignore severity level (i.e. it should always
     -- be printed)!
     , startupTracer = toLogObject' verb $ appendName "startup" tr
-    , shutdownTracer = toLogObject' verb $ appendName "shutdown" tr
+    , shutdownTracer = mempty -- tr -- TODO YUP toLogObject' verb $ appendName "shutdown" tr
     -- The remaining tracers are completely unused by the legacy tracing:
     , nodeInfoTracer = nullTracer
     , nodeStartupInfoTracer = nullTracer

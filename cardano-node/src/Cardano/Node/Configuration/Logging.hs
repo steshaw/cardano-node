@@ -80,6 +80,7 @@ import           Ouroboros.Consensus.Shelley.Ledger.Ledger
 import           Cardano.Git.Rev (gitRev)
 import           Cardano.Node.Configuration.POM (NodeConfiguration (..), ncProtocol)
 import           Cardano.Node.Protocol.Types (SomeConsensusProtocol (..))
+import           Cardano.Node.Startup (StartupTrace)
 import           Cardano.Node.Types
 import           Cardano.Slotting.Slot (EpochSize (..))
 import           Cardano.Tracing.Config (TraceOptions (..))

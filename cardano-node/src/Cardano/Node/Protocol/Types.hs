@@ -57,7 +57,7 @@ data SomeConsensusProtocol where
      SomeConsensusProtocol :: forall blk. ( Api.Protocol IO blk
                                           , HasKESMetricsData blk
                                           , HasKESInfo blk
-                                          , TraceConstraints blk
+                                         --- TODO YUP , TraceConstraints blk
                                           )
                            => Api.BlockType blk
                            -> Api.ProtocolInfoArgs IO blk

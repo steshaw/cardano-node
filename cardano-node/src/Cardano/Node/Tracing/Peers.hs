@@ -8,6 +8,7 @@ module Cardano.Node.Tracing.Peers
 
 import           Cardano.Prelude
 import           Data.Aeson (FromJSON, ToJSON)
+import           Prelude (error)
 
 import           Cardano.Logging
 
@@ -23,6 +24,19 @@ deriving instance Generic NodePeers
 
 instance ToJSON NodePeers
 instance FromJSON NodePeers
+
+instance MetaTrace NodePeers where
+  namespaceFor NodePeers {}  =
+    Namespace [] ["NodePeers"]
+  severityFor  (Namespace _ ["NodePeers"]) _ =
+    Info
+  severityFor ns _ =
+    error ("NodePeers>>severityFor: Unknown namespace " ++ show ns)
+  documentFor  (Namespace _ ["NodePeers"]) =
+    ""
+  documentFor ns =
+     error ("NodePeers>>documentFor: Unknown namespace " ++ show ns)
+  allNamespaces = [ Namespace [] ["NodePeers"]]
 
 traceNodePeers
   :: Trace IO NodePeers

@@ -405,7 +405,7 @@ handleSimpleNode runP p2pMode tracers nc onKernel = do
       EnabledP2PMode -> do
         traceWith (startupTracer tracers)
                   (StartupP2PInfo (ncDiffusionMode nc))
-        nt <- TopologyP2P.readTopologyFileOrError (startupTracer tracers) nc
+        nt <- TopologyP2P.readTopologyFileOrError mempty {-- TODO YUP (startupTracer tracers)--} nc
         let (localRoots, publicRoots) = producerAddresses nt
         traceWith (startupTracer tracers)
                 $ NetworkConfig localRoots
@@ -521,7 +521,7 @@ handleSimpleNode runP p2pMode tracers nc onKernel = do
   updateTopologyConfiguration localRootsVar publicRootsVar useLedgerVar =
     Signals.Catch $ do
       traceWith (startupTracer tracers) NetworkConfigUpdate
-      result <- try $ TopologyP2P.readTopologyFileOrError (startupTracer tracers) nc
+      result <- try $ TopologyP2P.readTopologyFileOrError mempty {-TODO YUP-(startupTracer tracers)-} nc
       case result of
         Left (FatalError err) ->
           traceWith (startupTracer tracers)

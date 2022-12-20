@@ -48,6 +48,7 @@ import           Ouroboros.Network.PeerSelection.LedgerPeers (UseLedgerAfter (..
 import           Ouroboros.Network.PeerSelection.RelayAccessPoint (RelayAccessPoint (..))
 
 
+
 -- | A newtype wrapper around 'UseLedgerAfter' which provides 'FromJSON' and
 -- 'ToJSON' instances.
 --
@@ -247,7 +248,7 @@ readTopologyFile tr nc = do
           -> IO (Either Text NetworkTopology)
   combine a b = case (a, b) of
     (Right {}, _)     -> return a
-    (_, Right {})     -> traceWith tr NetworkConfigLegacy
+    (_, Right {})     -> return a -- TODO YUP traceWith tr NetworkConfigLegacy
                       >> return (getLegacy <$> b)
     (Left _, Left _)  -> -- ignore parsing error of legacy format
                          return a

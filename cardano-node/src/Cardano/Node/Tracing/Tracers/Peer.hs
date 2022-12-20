@@ -3,17 +3,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 
-module Cardano.Node.Tracing.Tracers.Peer
-  ( PeerT (..)
-  , startPeerTracer
-  , namesForPeers
-  , severityPeers
-  , docPeers
-  , ppPeer
-  ) where
+module Cardano.Node.Tracing.Tracers.Peer where
+--   ( PeerT (..)
+--   , startPeerTracer
+--   , namesForPeers
+--   , severityPeers
+--   , docPeers
+--   , ppPeer
+--   ) where
 
 import           Cardano.Prelude hiding (atomically)
-import           Prelude (String)
+import           Prelude (error, String)
 
 import qualified Control.Concurrent.Class.MonadSTM.Strict as STM
 import           "contra-tracer" Control.Tracer
@@ -115,29 +115,21 @@ getCurrentPeers nkd = mapNodeKernelDataIO extractPeers nkd
                         $ Map.lookup cid peerStates
     pure . Map.elems $ peers
 
---------------------------------------------------------------------------------
--- Peers Tracer
---------------------------------------------------------------------------------
-
-namesForPeers :: [PeerT blk] -> [Text]
-namesForPeers _ = []
-
-severityPeers :: [PeerT blk] -> SeverityS
-severityPeers [] = Debug
-severityPeers _ = Notice
+-- --------------------------------------------------------------------------------
+-- -- Peers Tracer
+-- --------------------------------------------------------------------------------
 
 instance LogFormatting [PeerT blk] where
   forMachine _ []       = mempty
   forMachine dtal xs    = mconcat
-    [ "kind"  .= String "NodeKernelPeers"
-    , "peers" .= toJSON (foldl' (\acc x -> forMachine dtal x : acc) [] xs)
+    [ "peers" .= toJSON (foldl' (\acc x -> forMachine dtal x : acc) [] xs)
     ]
   forHuman peers = Text.concat $ intersperse ", " (map ppPeer peers)
   asMetrics peers = [IntM "Net.PeersFromNodeKernel" (fromIntegral (length peers))]
 
 instance LogFormatting (PeerT blk) where
   forMachine _dtal (PeerT cid _af status inflight) =
-    mconcat [ "peerAddress"   .= String (Text.pack . show . remoteAddress $ cid)
+    mconcat [  "peerAddress"   .= String (Text.pack . show . remoteAddress $ cid)
              , "peerStatus"    .= String (Text.pack . ppStatus $ status)
              , "peerSlotNo"    .= String (Text.pack . ppMaxSlotNo . peerFetchMaxSlotNo $ inflight)
              , "peerReqsInF"   .= String (show . peerFetchReqsInFlight $ inflight)
@@ -145,10 +137,22 @@ instance LogFormatting (PeerT blk) where
              , "peerBytesInF"  .= String (show . peerFetchBytesInFlight $ inflight)
              ]
 
-docPeers :: Documented [PeerT blk]
-docPeers = Documented [
-      DocMsg
-        []
-        [("Net.PeersFromNodeKernel","")]
-        ""
-    ]
+instance MetaTrace [PeerT blk] where
+  namespaceFor _  =
+    Namespace [] ["PeersFromNodeKernel"]
+  severityFor  (Namespace _ ["PeersFromNodeKernel"]) (Just []) =
+    Debug
+  severityFor  (Namespace _ ["PeersFromNodeKernel"]) _ =
+    Info
+  severityFor ns _ =
+    error ("PeerT>>severityFor: Unknown namespace " ++ show ns)
+  documentFor (Namespace _ ["PeersFromNodeKernel"]) =
+    ""
+  documentFor ns =
+     error ("PeerT>>documentFor: Unknown namespace " ++ show ns)
+  metricsDocFor (Namespace _ ["PeersFromNodeKernel"]) =
+    [("Net.PeersFromNodeKernel","")]
+  metricsDocFor ns =
+     error ("PeerT>>metricsDocFor: Unknown namespace " ++ show ns)
+
+  allNamespaces = [ Namespace [] ["PeersFromNodeKernel"]]
