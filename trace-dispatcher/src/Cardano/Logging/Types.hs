@@ -150,13 +150,14 @@ class LogFormatting a where
 
 class MetaTrace a where
   namespaceFor  :: a -> Namespace a
-  severityFor   :: Namespace a -> SeverityS
+  severityFor   :: Namespace a -> Maybe a -> SeverityS
   privacyFor    :: Namespace a -> Privacy
   privacyFor _  =  Public
   documentFor   :: Namespace a -> Text
   detailsFor    :: Namespace a -> DetailLevel
   detailsFor _  =  DNormal
   metricsDocFor :: Namespace a -> [(Text,Text)]
+  metricsDocFor _  =  []
   allNamespaces :: [Namespace a]
 
 data Metric

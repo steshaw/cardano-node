@@ -182,10 +182,13 @@ withSeverity (Trace tr) = Trace $
       tr
   where
     process lc cont =
-      if isJust (lcSeverity lc)
-        then (lc,cont)
-        else (lc {lcSeverity = Just (severityFor (Namespace [] (lcNSInner lc)
-                                                    :: Namespace a))}, cont)
+      let obj = case cont of
+                  Right v -> Just v
+                  _ -> Nothing
+      in if isJust (lcSeverity lc)
+          then (lc,cont)
+          else (lc {lcSeverity =
+            Just (severityFor (Namespace [] (lcNSInner lc) :: Namespace a) obj)}, cont)
 
 
 --- | Only processes messages further with a privacy greater then the given one

@@ -25,7 +25,7 @@ instance LogFormatting TestMessage where
 
 instance MetaTrace TestMessage where
   namespaceFor (TestMessage _text) = Namespace [] ["TestMessage"]
-  severityFor (Namespace _ ["TestMessage"]) = Info
+  severityFor (Namespace _ ["TestMessage"]) _ = Info
   privacyFor  (Namespace _ ["TestMessage"]) = Public
   documentFor (Namespace _ ["TestMessage"]) = "Just a test"
   metricsDocFor (Namespace _ ["TestMessage"]) = []

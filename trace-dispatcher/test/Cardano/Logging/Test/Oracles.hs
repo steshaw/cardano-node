@@ -29,10 +29,10 @@ oracleMessages conf ScriptRes {..} =
           filterSeverity = getSeverity conf (nsReplacePrefix ns ["Test"])
           backends = getBackends conf (nsReplacePrefix ns ["Test"])
           inStdout = hasStdoutBackend backends
-                      && fromEnum (severityFor ns) >= fromEnum filterSeverity
+                      && fromEnum (severityFor ns Nothing) >= fromEnum filterSeverity
           isCorrectStdout = includedExactlyOnce msg srStdoutRes == inStdout
           inForwarder = elem Forwarder backends
-                          && fromEnum (severityFor ns) >= fromEnum filterSeverity{-  -}
+                          && fromEnum (severityFor ns Nothing) >= fromEnum filterSeverity{-  -}
                           && privacyFor ns == Public
           isCorrectForwarder = includedExactlyOnce msg srForwardRes == inForwarder
           inEKG = elem EKGBackend backends

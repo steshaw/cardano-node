@@ -35,7 +35,6 @@ import           Cardano.Logging.FrequencyLimiter (LimitingMessage (..), limitFr
 import           Cardano.Logging.Trace (filterTraceBySeverity, setDetails)
 import           Cardano.Logging.Types
 
-import           Debug.Trace
 
 -- | Call this function at initialisation, and later for reconfiguration
 configureTracers :: forall a.
@@ -97,7 +96,7 @@ isSilentTracer tc (Namespace prefixNS _) =
   where
     isFiltered :: Namespace a -> Bool
     isFiltered ns =
-      let msgSeverity    = severityFor ns
+      let msgSeverity    = severityFor ns Nothing
           severityFilter = getSeverity tc ns
       in case severityFilter of
             SeverityF Nothing -> True -- silent config
@@ -112,7 +111,7 @@ hasNoMetrics _tc _ns =
 -- | Take a selector function called 'extract'.
 -- Take a function from trace to trace with this config dependent value.
 -- In this way construct a trace transformer with a config value
-withNamespaceConfig :: forall m a b c. (MonadIO m, Ord b, Show b) =>
+withNamespaceConfig :: forall m a b c. (MonadIO m, Ord b) =>
      String
   -> (TraceConfig -> Namespace a -> m b)
   -> (Maybe b -> Trace m c -> m (Trace m a))
@@ -160,14 +159,14 @@ withNamespaceConfig name extract withConfig tr = do
                   $ writeIORef ref
                                (Left (Map.insert nst val cmap, Nothing))
               Trace tt <- withConfig (Just val) tr
-              trace ("config dict " ++ show( Map.insert nst val cmap)) $
-                T.traceWith tt (lc, Left (Config c))
+              -- trace ("config dict " ++ show( Map.insert nst val cmap)) $
+              T.traceWith tt (lc, Left (Config c))
             Just v  -> do
               if v == val
                 then do
                   Trace tt <- withConfig (Just val) tr
-                  trace "config val"
-                    $ T.traceWith tt (lc, Left (Config c))
+                  -- trace "config val" $
+                  T.traceWith tt (lc, Left (Config c))
                 else error $ "Inconsistent trace configuration with context "
                                   ++ show nst
         Right _val -> error $ "Trace not reset before reconfiguration (1)"
@@ -181,13 +180,13 @@ withNamespaceConfig name extract withConfig tr = do
       case eitherConf of
         Left (cmap, Nothing) ->
           case nub (Map.elems cmap) of
-            []     -> trace ("optimize no value " ++ show lc) $
+            []     -> -- trace ("optimize no value " ++ show lc) $
                       pure ()
             [val]  -> do
                         liftIO $ writeIORef ref $ Right val
                         Trace tt <- withConfig (Just val) tr
-                        trace ("optimize one value " ++ show lc ++ " val " ++ show val) $
-                          T.traceWith tt (lc, Left Optimize)
+                        -- trace ("optimize one value " ++ show lc ++ " val " ++ show val) $
+                        T.traceWith tt (lc, Left Optimize)
             _      -> let decidingDict =
                             foldl
                               (\acc e -> Map.insertWith (+) e (1 :: Int) acc)
@@ -200,8 +199,8 @@ withNamespaceConfig name extract withConfig tr = do
                       in do
                         liftIO $ writeIORef ref (Left (newmap, Just mostCommon))
                         Trace tt <- withConfig Nothing tr
-                        trace ("optimize dict " ++ show lc ++ " dict " ++ show newmap ++ "common" ++ show mostCommon) $
-                          T.traceWith tt (lc, Left Optimize)
+                        -- trace ("optimize dict " ++ show lc ++ " dict " ++ show newmap ++ "common" ++ show mostCommon) $
+                        T.traceWith tt (lc, Left Optimize)
         Right _val -> error $ "Trace not reset before reconfiguration (3)"
                             ++ show nst
         Left (_cmap, Just _v) ->

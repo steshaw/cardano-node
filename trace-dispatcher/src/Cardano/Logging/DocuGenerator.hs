@@ -246,7 +246,7 @@ documentTracersRun tracers = do
                         (Map.insert
                           idx
                           ((emptyLogDoc (documentFor ns) (metricsDocFor ns))
-                            { ldSeverityCoded = Just $ severityFor ns
+                            { ldSeverityCoded = Just $ severityFor ns Nothing
                             , ldPrivacyCoded  = Just $ privacyFor ns
                             , ldDetailsCoded  = Just $ detailsFor ns
                           }))

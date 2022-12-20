@@ -73,10 +73,10 @@ instance MetaTrace Message where
   namespaceFor  Message2 {} = Namespace [] ["Message2"]
   namespaceFor  Message3 {} = Namespace [] ["Message3"]
 
-  severityFor   (Namespace _ ["Message1"]) = Debug
-  severityFor   (Namespace _ ["Message2"]) = Info
-  severityFor   (Namespace _ ["Message3"]) = Error
-  severityFor   ns = error ("Message>>severityFor: Missing namespace " ++ show ns)
+  severityFor   (Namespace _ ["Message1"]) _ = Debug
+  severityFor   (Namespace _ ["Message2"]) _ = Info
+  severityFor   (Namespace _ ["Message3"]) _ = Error
+  severityFor   ns _ = error ("Message>>severityFor: Missing namespace " ++ show ns)
 
   privacyFor    (Namespace _ ["Message1"]) = Public
   privacyFor    (Namespace _ ["Message2"]) = Confidential
@@ -88,7 +88,13 @@ instance MetaTrace Message where
   documentFor   (Namespace _ ["Message3"]) = "The third message."
   documentFor   ns = error ("Message>>documentFor: Missing namespace " ++ show ns)
 
-  metricsDocFor (Namespace _ ["Test","Message1"]) =  [("Metrics1", "A number")]
+  metricsDocFor (Namespace _ ["Message1"]) =
+    [ ("Metrics1", "A number")
+    , ("Metrics2", "A number")
+    , ("Metrics3", "A number")
+    , ("Metrics4", "A number")
+    , ("Metrics5", "A number")
+    ]
   metricsDocFor _                               =  []
 
   allNamespaces = [ Namespace [] ["Message1"]

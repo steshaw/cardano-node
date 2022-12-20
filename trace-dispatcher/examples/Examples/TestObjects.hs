@@ -104,10 +104,10 @@ instance MetaTrace (TraceForgeEvent blk) where
   namespaceFor TraceStartLeadershipCheck {} = Namespace [] ["StartLeadershipCheck"]
   namespaceFor TraceSlotIsImmutable {} = Namespace [] ["SlotIsImmutable"]
   namespaceFor TraceBlockFromFuture {} = Namespace  [] ["BlockFromFuture"]
-  severityFor (Namespace _ ["StartLeadershipCheck"]) = Info
-  severityFor (Namespace _ ["SlotIsImmutable"]) = Error
-  severityFor (Namespace _ ["BlockFromFuture"]) = Error
-  severityFor ns = error ("TestObject>>severityFor: Unknown namespace " ++ show ns)
+  severityFor (Namespace _ ["StartLeadershipCheck"]) _ = Info
+  severityFor (Namespace _ ["SlotIsImmutable"]) _ = Error
+  severityFor (Namespace _ ["BlockFromFuture"]) _ = Error
+  severityFor ns _ = error ("TestObject>>severityFor: Unknown namespace " ++ show ns)
   privacyFor  (Namespace _ _) = Public
   documentFor (Namespace _ ["StartLeadershipCheck"]) =
     "Start of the leadership check\n\

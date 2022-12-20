@@ -28,7 +28,7 @@ data BaseStats = BaseStats {
 
 instance MetaTrace BaseStats where
   namespaceFor BaseStats{} = Namespace [] ["BaseStats"]
-  severityFor (Namespace _ ["BaseStats"]) = Info
+  severityFor (Namespace _ ["BaseStats"]) _ = Info
   privacyFor  (Namespace _ ["BaseStats"]) = Public
   documentFor (Namespace _ ["BaseStats"]) = "Basic statistics"
   metricsDocFor (Namespace _ ["BaseStats"]) =
