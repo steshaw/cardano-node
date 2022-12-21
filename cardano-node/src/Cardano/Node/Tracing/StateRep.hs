@@ -15,8 +15,8 @@ module Cardano.Node.Tracing.StateRep
   , Replays (..)
   , StartupState (..)
   --, traceNodeStateChainDB
-  --, traceNodeStateStartup
-  --, traceNodeStateShutdown
+  , traceNodeStateStartup
+  , traceNodeStateShutdown
   ) where
 
 import           Cardano.Logging
@@ -229,45 +229,45 @@ instance MetaTrace NodeState where
 --         _ -> return ()
 --     _ -> return ()
 
--- traceNodeStateStartup
---   :: Trace IO NodeState
---   -> Startup.StartupTrace blk
---   -> IO ()
--- traceNodeStateStartup tr ev =
---   case ev of
---     Startup.StartupSocketConfigError e ->
---       traceWith tr $ NodeStartup $ StartupSocketConfigError (show e)
---     Startup.StartupDBValidation ->
---       traceWith tr $ NodeStartup StartupDBValidation
---     Startup.NetworkConfigUpdate ->
---       traceWith tr $ NodeStartup NetworkConfigUpdate
---     Startup.NetworkConfigUpdateError e ->
---       traceWith tr $ NodeStartup $ NetworkConfigUpdateError e
---     Startup.P2PWarning ->
---       traceWith tr $ NodeStartup P2PWarning
---     Startup.P2PWarningDevelopementNetworkProtocols ->
---       traceWith tr $ NodeStartup P2PWarningDevelopementNetworkProtocols
---     Startup.WarningDevelopmentNetworkProtocols n2ns n2cs ->
---       traceWith tr $ NodeStartup $ WarningDevelopmentNetworkProtocols n2ns n2cs
---     _ -> return ()
+traceNodeStateStartup
+  :: Trace IO NodeState
+  -> Startup.StartupTrace blk
+  -> IO ()
+traceNodeStateStartup tr ev =
+  case ev of
+    Startup.StartupSocketConfigError e ->
+      traceWith tr $ NodeStartup $ StartupSocketConfigError (show e)
+    Startup.StartupDBValidation ->
+      traceWith tr $ NodeStartup StartupDBValidation
+    Startup.NetworkConfigUpdate ->
+      traceWith tr $ NodeStartup NetworkConfigUpdate
+    Startup.NetworkConfigUpdateError e ->
+      traceWith tr $ NodeStartup $ NetworkConfigUpdateError e
+    Startup.P2PWarning ->
+      traceWith tr $ NodeStartup P2PWarning
+    Startup.P2PWarningDevelopementNetworkProtocols ->
+      traceWith tr $ NodeStartup P2PWarningDevelopementNetworkProtocols
+    Startup.WarningDevelopmentNetworkProtocols n2ns n2cs ->
+      traceWith tr $ NodeStartup $ WarningDevelopmentNetworkProtocols n2ns n2cs
+    _ -> return ()
 
--- traceNodeStateShutdown
---   :: Trace IO NodeState
---   -> ShutdownTrace
---   -> IO ()
--- traceNodeStateShutdown tr = traceWith tr . NodeShutdown
+traceNodeStateShutdown
+  :: Trace IO NodeState
+  -> ShutdownTrace
+  -> IO ()
+traceNodeStateShutdown tr = traceWith tr . NodeShutdown
 
--- -- Misc.
+-- Misc.
 
--- getSlotForNow :: IO SlotNo
--- getSlotForNow = do
---   posixNow <- utc2s <$> getCurrentTime
---   -- Since Shelley era the slot length is 1 second, so the number of seconds is the number of slots.
---   let numberOfSlotsFromShelleyTillNow = posixNow - posixStartOfShelleyEra
---       totalNumberOfSlotsTillNow = numberOfSlotsInByronEra + numberOfSlotsFromShelleyTillNow
---   return $ SlotNo totalNumberOfSlotsTillNow
---  where
---   -- These numbers are taken from 'First-Block-of-Each-Era' wiki page.
---   posixStartOfShelleyEra = 1596073491
---   numberOfSlotsInByronEra = 4492799
---   utc2s = fromInteger . round . utcTimeToPOSIXSeconds
+getSlotForNow :: IO SlotNo
+getSlotForNow = do
+  posixNow <- utc2s <$> getCurrentTime
+  -- Since Shelley era the slot length is 1 second, so the number of seconds is the number of slots.
+  let numberOfSlotsFromShelleyTillNow = posixNow - posixStartOfShelleyEra
+      totalNumberOfSlotsTillNow = numberOfSlotsInByronEra + numberOfSlotsFromShelleyTillNow
+  return $ SlotNo totalNumberOfSlotsTillNow
+ where
+  -- These numbers are taken from 'First-Block-of-Each-Era' wiki page.
+  posixStartOfShelleyEra = 1596073491
+  numberOfSlotsInByronEra = 4492799
+  utc2s = fromInteger . round . utcTimeToPOSIXSeconds

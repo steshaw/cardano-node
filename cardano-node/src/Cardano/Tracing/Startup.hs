@@ -52,4 +52,4 @@ instance ( Show (BlockNodeToNodeVersion blk)
          , Show (BlockNodeToClientVersion blk)
          )
         => ToObject (StartupTrace blk) where
-  toObject verb = undefined -- TODO YUP forMachine (toDetailLevel verb)
+  toObject verb = forMachine (toDetailLevel verb)

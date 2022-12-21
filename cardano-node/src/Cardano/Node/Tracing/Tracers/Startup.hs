@@ -237,6 +237,138 @@ instance ( Show (BlockNodeToNodeVersion blk)
                , "nodeStartTime" .= biNodeStartTime
                ]
 
+instance MetaTrace  (StartupTrace blk) where
+  namespaceFor StartupInfo {}  =
+    Namespace [] ["Info"]
+  namespaceFor StartupP2PInfo {}  =
+    Namespace [] ["P2PInfo"]
+  namespaceFor StartupTime {}  =
+    Namespace [] ["Time"]
+  namespaceFor StartupNetworkMagic {}  =
+    Namespace [] ["NetworkMagic"]
+  namespaceFor StartupSocketConfigError {}  =
+     Namespace [] ["SocketConfigError"]
+  namespaceFor StartupDBValidation {}  =
+    Namespace [] ["DBValidation"]
+  namespaceFor NetworkConfigUpdate {}  =
+    Namespace [] ["NetworkConfigUpdate"]
+  namespaceFor NetworkConfigUpdateUnsupported {}  =
+    Namespace [] ["NetworkConfigUpdateUnsupported"]
+  namespaceFor NetworkConfigUpdateError {}  =
+    Namespace [] ["NetworkConfigUpdateError"]
+  namespaceFor NetworkConfig {}  =
+    Namespace [] ["NetworkConfig"]
+  namespaceFor NetworkConfigLegacy {}  =
+    Namespace [] ["NetworkConfigLegacy"]
+  namespaceFor P2PWarning {}  =
+    Namespace [] ["P2PWarning"]
+  namespaceFor P2PWarningDevelopementNetworkProtocols {}  =
+    Namespace [] ["P2PWarningDevelopementNetworkProtocols"]
+  namespaceFor WarningDevelopmentNetworkProtocols {}  =
+    Namespace [] ["WarningDevelopmentNetworkProtocols"]
+  namespaceFor BICommon {}  =
+    Namespace [] ["Common"]
+  namespaceFor BIShelley {}  =
+    Namespace [] ["ShelleyBased"]
+  namespaceFor BIByron {}  =
+    Namespace [] ["Byron"]
+  namespaceFor BINetwork {}  =
+    Namespace [] ["Network"]
+
+  severityFor (Namespace _ ["SocketConfigError"]) _ = Error
+  severityFor (Namespace _ ["NetworkConfigUpdate"]) _ = Notice
+  severityFor (Namespace _ ["NetworkConfigUpdateError"]) _ = Error
+  severityFor (Namespace _ ["NetworkConfigUpdateUnsupported"]) _ = Warning
+  severityFor (Namespace _ ["P2PWarning"]) _ = Warning
+  severityFor (Namespace _ ["P2PWarningDevelopementNetworkProtocols"]) _ = Warning
+  severityFor (Namespace _ ["WarningDevelopmentNetworkProtocols"]) _ = Warning
+  severityFor _ _ = Info
+
+  documentFor (Namespace [] ["Info"]) =
+    ""
+  documentFor (Namespace [] ["P2PInfo"]) =
+    ""
+  documentFor (Namespace [] ["Time"]) =
+    ""
+  documentFor (Namespace [] ["NetworkMagic"]) =
+    ""
+  documentFor (Namespace [] ["SocketConfigError"]) =
+    ""
+  documentFor (Namespace [] ["DBValidation"]) =
+    ""
+  documentFor (Namespace [] ["NetworkConfigUpdate"]) =
+    ""
+  documentFor (Namespace [] ["NetworkConfigUpdateUnsupported"]) =
+    ""
+  documentFor (Namespace [] ["NetworkConfigUpdateError"]) =
+    ""
+  documentFor (Namespace [] ["NetworkConfig"]) =
+    ""
+  documentFor (Namespace [] ["NetworkConfigLegacy"]) =
+    ""
+  documentFor (Namespace [] ["P2PWarning"]) =
+    ""
+  documentFor (Namespace [] ["P2PWarningDevelopementNetworkProtocols"]) =
+    ""
+  documentFor (Namespace [] ["WarningDevelopmentNetworkProtocols"]) =
+    ""
+  documentFor (Namespace [] ["Common"]) =
+    "_biConfigPath_: is the path to the config in use. \
+      \\n_biProtocol_: is the name of the protocol, e.g. \"Byron\", \"Shelley\" \
+      \or \"Byron; Shelley\". \
+      \\n_biVersion_: is the version of the node software running. \
+      \\n_biCommit_: is the commit revision of the software running. \
+      \\n_biNodeStartTime_: gives the time this node was started."
+  documentFor (Namespace [] ["ShelleyBased"]) =
+    "bisEra is the current era, e.g. \"Shelley\", \"Allegra\", \"Mary\" \
+      \or \"Alonzo\". \
+      \\n_bisSystemStartTime_: TODO JNF \
+      \\n_bisSlotLength_: gives the length of a slot as time interval. \
+      \\n_bisEpochLength_: gives the number of slots which forms an epoch. \
+      \\n_bisSlotsPerKESPeriod_: gives the slots per KES period."
+  documentFor (Namespace [] ["Byron"]) =
+    "_bibSystemStartTime_: \
+      \\n_bibSlotLength_: gives the length of a slot as time interval. \
+      \\n_bibEpochLength_: gives the number of slots which forms an epoch."
+  documentFor (Namespace [] ["Network"]) =
+    "_niAddresses_: IPv4 or IPv6 socket ready to accept connections\
+      \or diffusion addresses. \
+      \\n_niDiffusionMode_: shows if the node runs only initiator or both\
+      \initiator or responder node. \
+      \\n_niDnsProducers_: shows the list of domain names to subscribe to. \
+      \\n_niIpProducers_: shows the list of ip subscription addresses."
+  documentFor ns =
+     error ("PeerT>>documentFor: Unknown namespace " ++ show ns)
+
+  metricsDocFor _ =
+    [("Net.PeersFromNodeKernel","")]
+  metricsDocFor ns =
+     error ("PeerT>>metricsDocFor: Unknown namespace " ++ show ns)
+
+  allNamespaces =
+    [ Namespace [] ["Info"]
+    , Namespace [] ["P2PInfo"]
+    , Namespace [] ["Time"]
+    , Namespace [] ["NetworkMagic"]
+    , Namespace [] ["SocketConfigError"]
+    , Namespace [] ["DBValidation"]
+    , Namespace [] ["NetworkConfigUpdate"]
+    , Namespace [] ["NetworkConfigUpdateUnsupported"]
+    , Namespace [] ["NetworkConfigUpdateError"]
+    , Namespace [] ["NetworkConfig"]
+    , Namespace [] ["NetworkConfigLegacy"]
+    , Namespace [] ["P2PWarning"]
+    , Namespace [] ["P2PWarningDevelopementNetworkProtocols"]
+    , Namespace [] ["WarningDevelopmentNetworkProtocols"]
+    , Namespace [] ["Common"]
+    , Namespace [] ["ShelleyBased"]
+    , Namespace [] ["Byron"]
+    , Namespace [] ["Network"]
+    ]
+
+
+
+
 -- | Pretty print 'StartupInfoTrace'
 --
 ppStartupInfoTrace :: ( Show (BlockNodeToNodeVersion blk)
@@ -356,116 +488,6 @@ p2pNetworkConfigLegacyMessage =
   , "See https://github.com/input-output-hk/cardano-node/issues/4559"
   , "Note that the legacy p2p format will be removed in `1.37` release."
   ]
-
--- namesStartupInfo :: StartupTrace blk -> [Text]
--- namesStartupInfo = \case
---   StartupInfo {}                            -> ["Info"]
---   StartupP2PInfo {}                         -> ["P2PInfo"]
---   StartupTime {}                            -> ["Time"]
---   StartupNetworkMagic {}                    -> ["NetworkMagic"]
---   StartupSocketConfigError {}               -> ["SocketConfigError"]
---   StartupDBValidation {}                    -> ["DBValidation"]
---   NetworkConfigUpdate {}                    -> ["NetworkConfigUpdate"]
---   NetworkConfigUpdateUnsupported            -> ["NetworkConfigUpdateUnsupported"]
---   NetworkConfigUpdateError {}               -> ["NetworkConfigUpdateError"]
---   NetworkConfig {}                          -> ["NetworkConfig"]
---   NetworkConfigLegacy {}                    -> ["NetworkConfigLegacy"]
---   P2PWarning {}                             -> ["P2PWarning"]
---   P2PWarningDevelopementNetworkProtocols {} -> ["P2PWarningDevelopementNetworkProtocols"]
---   WarningDevelopmentNetworkProtocols {}     -> ["WarningDevelopmentNetworkProtocols"]
---   BICommon {}                               -> ["Common"]
---   BIShelley {}                              -> ["ShelleyBased"]
---   BIByron {}                                -> ["Byron"]
---   BINetwork {}                              -> ["Network"]
-
--- docStartupInfo :: Documented (StartupTrace blk)
--- docStartupInfo = Documented [
---     DocMsg
---       ["Info"]
---       []
---       ""
---   , DocMsg
---       ["P2PInfo"]
---       []
---       ""
---   , DocMsg
---       ["Time"]
---       []
---       ""
---   , DocMsg
---       ["NetworkMagic"]
---       []
---       ""
---   , DocMsg
---       ["SocketConfigError"]
---       []
---       ""
---   , DocMsg
---       ["DBValidation"]
---       []
---       ""
---   , DocMsg
---       ["NetworkConfigUpdate"]
---       []
---       ""
---   , DocMsg
---       ["NetworkConfigUpdateError"]
---       []
---       ""
---   , DocMsg
---       ["NetworkConfig"]
---       []
---       ""
---   , DocMsg
---       ["P2PWarning"]
---       []
---       ""
---   , DocMsg
---       ["P2PWarningDevelopementNetworkProtocols"]
---       []
---       ""
---   , DocMsg
---       ["WarningDevelopmentNetworkProtocols"]
---       []
---       ""
---   , DocMsg
---       ["Common"]
---       []
---       "_biConfigPath_: is the path to the config in use. \
---       \\n_biProtocol_: is the name of the protocol, e.g. \"Byron\", \"Shelley\" \
---       \or \"Byron; Shelley\". \
---       \\n_biVersion_: is the version of the node software running. \
---       \\n_biCommit_: is the commit revision of the software running. \
---       \\n_biNodeStartTime_: gives the time this node was started."
---   , DocMsg
---       ["ShelleyBased"]
---       []
---       "bisEra is the current era, e.g. \"Shelley\", \"Allegra\", \"Mary\" \
---       \or \"Alonzo\". \
---       \\n_bisSystemStartTime_: TODO JNF \
---       \\n_bisSlotLength_: gives the length of a slot as time interval. \
---       \\n_bisEpochLength_: gives the number of slots which forms an epoch. \
---       \\n_bisSlotsPerKESPeriod_: gives the slots per KES period."
---   , DocMsg
---       ["Byron"]
---       []
---       "_bibSystemStartTime_: TODO JNF \
---       \\n_bibSlotLength_: gives the length of a slot as time interval. \
---       \\n_bibEpochLength_: gives the number of slots which forms an epoch."
---   , DocMsg
---       ["Network"]
---       []
---       "_niAddresses_: IPv4 or IPv6 socket ready to accept connections\
---       \or diffusion addresses. \
---       \\n_niDiffusionMode_: shows if the node runs only initiator or both\
---       \initiator or responder node. \
---       \\n_niDnsProducers_: shows the list of domain names to subscribe to. \
---       \\n_niIpProducers_: shows the list of ip subscription addresses."
---   ]
-
--- --
--- -- Utils
--- --
 
 -- | Pretty print 'SocketOrSocketInfo'.
 --

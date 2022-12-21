@@ -89,7 +89,6 @@ mkDispatchTracers
   -> IO (Tracers (ConnectionId RemoteAddress) (ConnectionId LocalAddress) blk p2p)
 mkDispatchTracers nodeKernel trBase trForward mbTrEKG trDataPoint trConfig enableP2P p = do
 
-    -- Some special tracers
     nodeInfoDP <- mkDataPointTracer trDataPoint
     configureTracers trConfig [nodeInfoDP]
 
@@ -109,32 +108,25 @@ mkDispatchTracers nodeKernel trBase trForward mbTrEKG trDataPoint trConfig enabl
                     ["Net", "Peers", "List"]
     configureTracers trConfig [peersTr]
 
-    -- Resource tracer
-    resourcesTr <- mkCardanoTracer trBase trForward mbTrEKG
-                    []
+    resourcesTr <- mkCardanoTracer trBase trForward mbTrEKG []
     configureTracers trConfig [resourcesTr]
 
-    -- BasicInfo tracer
-    startupTr <- mkCardanoTracer trBase trForward mbTrEKG
-                    ["Startup"]
+    startupTr <- mkCardanoTracer trBase trForward mbTrEKG ["Startup"]
     configureTracers trConfig [startupTr]
 
---     shutdownTr <- mkCardanoTracer
---                 trBase trForward mbTrEKG
---                 ["Shutdown"]
---                 namesForShutdown
---                 severityShutdown
---                 allPublic
---     configureTracers trConfig docShutdown [shutdownTr]
+    shutdownTr <- mkCardanoTracer trBase trForward mbTrEKG ["Shutdown"]
+    configureTracers trConfig  [shutdownTr]
 
---     chainDBTr <- mkCardanoTracer'
---                 trBase trForward mbTrEKG
---                 ["ChainDB"]
---                 namesForChainDBTraceEvents
---                 severityChainDB
---                 allPublic
---                 withAddedToCurrentChainEmptyLimited
---     configureTracers trConfig docChainDBTraceEvent [chainDBTr]
+    chainDBTr <- mkCardanoTracer' trBase trForward mbTrEKG ["ChainDB"]
+                                    withAddedToCurrentChainEmptyLimited
+    configureTracers trConfig [chainDBTr]
+    -- Filter out replayed blocks for this tracer
+    let chainDBTr' = filterTrace
+                      (\case (_, ChainDB.TraceLedgerReplayEvent
+                                            LedgerDB.ReplayedBlock {}) -> False
+                             (_, _) -> True)
+                      chainDBTr
+
 
 --     replayBlockTr <- mkCardanoTracer
 --                 trBase trForward mbTrEKG
@@ -146,12 +138,7 @@ mkDispatchTracers nodeKernel trBase trForward mbTrEKG trDataPoint trConfig enabl
 
 --     -- This tracer handles replayed blocks specially
 --     replayBlockTr' <- withReplayedBlock replayBlockTr
---     -- Filter out replayed blocks for this tracer
---     let chainDBTr' = filterTrace
---                       (\case (_, ChainDB.TraceLedgerReplayEvent
---                                             LedgerDB.ReplayedBlock {}) -> False
---                              (_, _) -> True)
---                       chainDBTr
+
 
 --     consensusTr :: Consensus.Tracers
 --                     IO
@@ -186,7 +173,7 @@ mkDispatchTracers nodeKernel trBase trForward mbTrEKG trDataPoint trConfig enabl
 --       mkDiffusionTracersExtra trBase trForward mbTrEKG trDataPoint trConfig enableP2P
     pure Tracers
       {
-      -- { chainDBTracer = Tracer (traceWith chainDBTr')
+        chainDBTracer = Tracer (traceWith chainDBTr')
       --                <> Tracer (traceWith replayBlockTr')
       --                <> Tracer (SR.traceNodeStateChainDB p nodeStateDP)
       -- , consensusTracers = consensusTr
@@ -194,10 +181,10 @@ mkDispatchTracers nodeKernel trBase trForward mbTrEKG trDataPoint trConfig enabl
       -- , nodeToNodeTracers = nodeToNodeTr
       -- , diffusionTracers = diffusionTr
       -- , diffusionTracersExtra = diffusionTrExtra
-        startupTracer   = Tracer (traceWith startupTr)
-      --                   <> Tracer (SR.traceNodeStateStartup nodeStateDP)
-      -- , shutdownTracer  = Tracer (traceWith shutdownTr)
-      --                   <> Tracer (SR.traceNodeStateShutdown nodeStateDP)
+      , startupTracer   = Tracer (traceWith startupTr)
+                         <> Tracer (SR.traceNodeStateStartup nodeStateDP)
+      , shutdownTracer  = Tracer (traceWith shutdownTr)
+                         <> Tracer (SR.traceNodeStateShutdown nodeStateDP)
       , nodeInfoTracer  = Tracer (traceWith nodeInfoDP)
       , nodeStartupInfoTracer = Tracer (traceWith nodeStartupInfoDP)
       , nodeStateTracer = Tracer (traceWith stateTr)

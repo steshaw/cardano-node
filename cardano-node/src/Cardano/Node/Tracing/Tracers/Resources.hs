@@ -2,8 +2,6 @@
 
 module Cardano.Node.Tracing.Tracers.Resources
   ( startResourceTracer
-  , namesForResources
-  , severityResources
   ) where
 
 import           "contra-tracer" Control.Tracer
@@ -27,13 +25,3 @@ startResourceTracer tr delayMilliseconds = do
         Just rs -> traceWith tr rs
         Nothing -> pure ()
       threadDelay (delayMilliseconds * 1000)
-
---------------------------------------------------------------------------------
--- ResourceStats Tracer
---------------------------------------------------------------------------------
-
-namesForResources :: ResourceStats -> [Text]
-namesForResources _ = []
-
-severityResources :: ResourceStats -> SeverityS
-severityResources _ = Info

@@ -5,90 +5,93 @@
 
 {-# OPTIONS_GHC -Wno-name-shadowing -Wno-orphans #-}
 
-module Cardano.Node.Tracing.Tracers.Shutdown () where
---   ( namesForShutdown
---   , severityShutdown
---   , ppShutdownTrace
---   , docShutdown
---   ) where
+module Cardano.Node.Tracing.Tracers.Shutdown
+  ( ppShutdownTrace
+  ) where
 
--- import           Cardano.Logging
--- import           Cardano.Node.Handlers.Shutdown
--- import           Data.Aeson (Value (..), (.=))
--- import           Data.Monoid (mconcat, (<>))
--- import           Data.Text (Text, pack)
--- import           Prelude (show)
+import           Data.Aeson (Value (..), (.=))
+import           Data.Monoid (mconcat, (<>))
+import           Data.Text (Text, pack)
+import           Prelude (error, show)
+
+import           Cardano.Logging
+import           Cardano.Node.Handlers.Shutdown
 
 -- --------------------------------------------------------------------------------
 -- -- ShutdownTrace Tracer
 -- --------------------------------------------------------------------------------
 
--- namesForShutdown :: ShutdownTrace -> [Text]
--- namesForShutdown = \case
---   ShutdownRequested{}         -> ["Requested"]
---   AbnormalShutdown{}          -> ["Abnormal"]
---   ShutdownUnexpectedInput{}   -> ["UnexpectedInput"]
---   RequestingShutdown{}        -> ["Requesting"]
---   ShutdownArmedAt{}           -> ["ArmedAt"]
+instance LogFormatting ShutdownTrace where
+  forHuman = ppShutdownTrace
 
--- severityShutdown :: ShutdownTrace -> SeverityS
--- severityShutdown = \case
---   ShutdownRequested{}         -> Warning
---   AbnormalShutdown{}          -> Error
---   ShutdownUnexpectedInput{}   -> Error
---   RequestingShutdown{}        -> Warning
---   ShutdownArmedAt{}           -> Warning
+  forMachine _ = \case
+    ShutdownRequested ->
+          mconcat [ "kind"   .= String "ShutdownRequested" ]
+    AbnormalShutdown  ->
+          mconcat [ "kind"   .= String "AbnormalShutdown" ]
+    ShutdownUnexpectedInput text ->
+          mconcat [ "kind"   .= String "AbnormalShutdown"
+                  , "unexpected" .= String text ]
+    RequestingShutdown reason ->
+          mconcat [ "kind"   .= String "RequestingShutdown"
+                  , "reason" .= String reason ]
+    ShutdownArmedAt lim ->
+          mconcat [ "kind"   .= String "ShutdownArmedAt"
+                  , "limit"  .= lim ]
 
--- ppShutdownTrace :: ShutdownTrace -> Text
--- ppShutdownTrace = \case
---   ShutdownRequested             -> "Received shutdown request"
---   AbnormalShutdown              -> "non-isEOFerror shutdown request"
---   ShutdownUnexpectedInput text  ->
---     "Received shutdown request but found unexpected input in --shutdown-ipc FD: " <> text
---   RequestingShutdown reason     -> "Ringing the node shutdown doorbell:  " <> reason
---   ShutdownArmedAt lim           -> "Will terminate upon reaching " <> pack (show lim)
+ppShutdownTrace :: ShutdownTrace -> Text
+ppShutdownTrace = \case
+  ShutdownRequested             -> "Received shutdown request"
+  AbnormalShutdown              -> "non-isEOFerror shutdown request"
+  ShutdownUnexpectedInput text  ->
+    "Received shutdown request but found unexpected input in --shutdown-ipc FD: " <> text
+  RequestingShutdown reason     -> "Ringing the node shutdown doorbell:  " <> reason
+  ShutdownArmedAt lim           -> "Will terminate upon reaching " <> pack (show lim)
 
--- instance LogFormatting ShutdownTrace where
---   forHuman = ppShutdownTrace
+instance MetaTrace ShutdownTrace where
+  namespaceFor ShutdownRequested {} =
+    Namespace [] ["Requested"]
+  namespaceFor AbnormalShutdown {} =
+    Namespace [] ["Abnormal"]
+  namespaceFor ShutdownUnexpectedInput {} =
+    Namespace [] ["UnexpectedInput"]
+  namespaceFor RequestingShutdown {} =
+    Namespace [] ["Requesting"]
+  namespaceFor ShutdownArmedAt {} =
+    Namespace [] ["ArmedAt"]
 
---   forMachine _ = \case
---     ShutdownRequested ->
---           mconcat [ "kind"   .= String "ShutdownRequested" ]
---     AbnormalShutdown  ->
---           mconcat [ "kind"   .= String "AbnormalShutdown" ]
---     ShutdownUnexpectedInput text ->
---           mconcat [ "kind"   .= String "AbnormalShutdown"
---                   , "unexpected" .= String text ]
---     RequestingShutdown reason ->
---           mconcat [ "kind"   .= String "RequestingShutdown"
---                   , "reason" .= String reason ]
---     ShutdownArmedAt lim ->
---           mconcat [ "kind"   .= String "ShutdownArmedAt"
---                   , "limit"  .= lim ]
+  severityFor  (Namespace _ ["Requested"]) _ =
+    Warning
+  severityFor  (Namespace _ ["Abnormal"]) _ =
+    Error
+  severityFor  (Namespace _ ["UnexpectedInput"]) _ =
+    Error
+  severityFor  (Namespace _ ["Requesting"]) _ =
+    Warning
+  severityFor  (Namespace _ ["ArmedAt"]) _ =
+    Warning
+  severityFor ns _ =
+    error ("ShutdownTrace>>severityFor: Unknown namespace " <> show ns)
 
--- docShutdown :: Documented ShutdownTrace
--- docShutdown = addDocumentedNamespace  [] docShutdown'
+  documentFor  (Namespace _ ["Requested"]) =
+    "Node shutdown was requested."
+  documentFor  (Namespace _ ["Abnormal"]) =
+    "non-isEOFerror shutdown request"
+  documentFor  (Namespace _ ["UnexpectedInput"]) =
+    "Received shutdown request but found unexpected input in --shutdown-ipc FD: "
+  documentFor  (Namespace _ ["Requesting"]) =
+    "Ringing the node shutdown doorbell"
+  documentFor  (Namespace _ ["ArmedAt"])  =
+    "Setting up node shutdown at given slot / block."
+  documentFor ns =
+     error ("ShutdownTrace>>documentFor: Unknown namespace " <> show ns)
 
--- docShutdown' :: Documented ShutdownTrace
--- docShutdown' = Documented
---   [ DocMsg
---       ["Requested"]
---       []
---       "Node shutdown was requested."
---   ,  DocMsg
---       ["Abnormal"]
---       []
---       "non-isEOFerror shutdown request"
---   ,  DocMsg
---       ["UnexpectedInput"]
---       []
---       "Received shutdown request but found unexpected input in --shutdown-ipc FD: "
---   , DocMsg
---       ["Requesting"]
---       []
---       "Ringing the node shutdown doorbell"
---   , DocMsg
---       ["ArmedAt"]
---       []
---       "Setting up node shutdown at given slot / block."
---   ]
+
+  allNamespaces =
+    [ Namespace [] ["Requested"]
+    , Namespace [] ["Abnormal"]
+    , Namespace [] ["UnexpectedInput"]
+    , Namespace [] ["Requesting"]
+    , Namespace [] ["ArmedAt"]
+    ]
+
