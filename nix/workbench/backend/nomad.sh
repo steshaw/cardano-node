@@ -30,6 +30,10 @@ case "$op" in
         local usage="USAGE: wb nomad $op PROFILE-DIR"
         local profile_dir=${1:?$usage}
 
+        # The one provided by the profile, the one used may suffer changes (jq).
+        setenvjqstr 'nomad_job_file' "$profile_dir"/nomad-job.json
+        # Get the job name from the job's JSON description.
+        setenvjqstr 'nomad_job_name' $(jq -r '.["job"] | keys[0]' "$profile_dir"/nomad-job.json)
         # Look up `supervisord` config file produced by Nix (run profile).
         setenvjqstr 'supervisord_conf' "$profile_dir"/supervisor.conf
         # The `--serverurl` argument is needed in every call to `nomad exec`.
@@ -323,7 +327,7 @@ case "$op" in
         # constraints, resource exhaustion, etc), then the exit code will be 2.
         # Any other errors, including client connection issues or internal
         # errors, are indicated by exit code 1.
-        nomad job run -verbose "$dir/nomad/job-cluster.hcl" || true
+        nomad job run -verbose "$dir/nomad/nomad-job.json" || true
         # Assuming that `nomad` placement is enough wait.
         local nomad_alloc_id=$(nomad job allocs -json cluster | jq -r '.[0].ID')
         setenvjqstr 'nomad_alloc_id' "$nomad_alloc_id"
@@ -441,7 +445,7 @@ case "$op" in
         # ERRO[0087] Unable to get cgroup path of container: cannot get cgroup path unless container b2f4fea15a4a56591231fae10e3c3e55fd485b2c0dfb231c073e2a3c9efa0e42 is running: container is stopped
         # {"@level":"debug","@message":"Could not get container stats, unknown error","@module":"podman.podmanHandle","@timestamp":"2022-12-14T14:34:03.264133Z","driver":"podman","error":"\u0026json.SyntaxError{msg:\"unexpected end of JSON input\", Offset:0}","timestamp":"2022-12-14T14:34:03.264Z"}
         # {"@level":"debug","@message":"Could not get container stats, unknown error","@module":"podman.podmanHandle","@timestamp":"2022-12-14T14:34:16.320494Z","driver":"podman","error":"\u0026url.Error{Op:\"Get\", URL:\"http://u/v1.0.0/libpod/containers/a55f689be4d2898225c76fa12716cfa0c0dedd54a1919e82d44523a35b8d07a4/stats?stream=false\", Err:(*net.OpError)(0xc000ba5220)}","timestamp":"2022-12-14T14:34:16.320Z"}
-        nomad job stop -global -no-shutdown-delay -purge -yes -verbose cluster >> "$dir/nomad/stdout" 2>> "$dir/nomad/stderr"
+        nomad job stop -global -no-shutdown-delay -purge -yes -verbose "$nomad_job_name" >> "$dir/nomad/stdout" 2>> "$dir/nomad/stderr"
 
         local nomad_pid=$(envjqr 'nomad_pid')
         msg "Killing nomad agent (PID $nomad_pid)..."
@@ -540,14 +544,14 @@ nomad_create_folders_and_config() {
 # Specifies the region the Nomad agent is a member of. A region typically maps
 # to a geographic region, for example us, with potentially multiple zones, which
 # map to datacenters such as us-west and us-east.
-region = "workbench"
+region = "workbench-region"
 # Specifies the data center of the local agent. All members of a datacenter
 # should share a local LAN connection.
-datacenter = "workbench"
+datacenter = "workbench-datacenter-1"
 # Specifies the name of the local node. This value is used to identify
 # individual agents. When specified on a server, the name must be unique within
 # the region.
-name = "workbench"
+name = "workbench-nomad-agent-1"
 
 # Paths:
 ########
@@ -816,6 +820,9 @@ EOF
 # [https://github.com/hashicorp/nomad/issues/6758#issuecomment-794116722]
 nomad_create_job_file() {
     local dir=$1
+    local nomad_job_file=$(envjqr 'nomad_job_file')
+    cp $nomad_job_file $dir/nomad/nomad-job.json
+    chmod +w $dir/nomad/nomad-job.json
     # If CARDANO_MAINNET_MIRROR is present generate a list of needed volumes.
     if test -n "$CARDANO_MAINNET_MIRROR"
     then
@@ -830,34 +837,6 @@ nomad_create_job_file() {
     else
       local mainnet_mirror_volumes="[]"
     fi
-    # Create the task to run in `nomad` using `podman` driver.
-    # https://www.nomadproject.io/docs/job-specification
-    # https://www.nomadproject.io/docs/job-specification/job
-    # https://github.com/hashicorp/nomad-driver-podman#task-configuration
-cat > "$dir/nomad/job-cluster.hcl" <<- EOF
-job "cluster" {
-  region = "workbench"
-  datacenters = [ "workbench" ]
-  type = "service"
-  reschedule {
-    attempts = 0
-    unlimited = false
-  }
-  # A group defines a series of tasks that should be co-located
-  # on the same client (host). All tasks within a group will be
-  # placed on the same host.
-  group "cluster" {
-    restart {
-      attempts = 0
-      mode = "fail"
-    }
-    # The network stanza specifies the networking requirements for the task
-    # group, including the network mode and port allocations.
-    # https://developer.hashicorp.com/nomad/docs/job-specification/network
-    network {
-      mode = "host"
-    }
-EOF
     # Hint:
     # - Working dir is: /tmp/cluster/
     # - Mount point is: /tmp/cluster/run/current
@@ -866,7 +845,6 @@ EOF
     for node in $(jq_tolist 'keys' "$dir"/node-specs.json)
     do
       local task_stanza_name="$node"
-      local task_stanza_file="$dir/nomad/job-cluster-task-$task_stanza_name.hcl"
       # Every node needs access to itself, "../tracer/" and "./genesis/"
       # *1 And remapping its own supervisor to the cluster/upper directory.
       # *2 And read only access to eveything else so supervisor.conf doesn't
@@ -892,12 +870,10 @@ EOF
         \$mainnet_mirror_volumes
       "
       local podman_volumes=$(jq "$jq_filter" --argjson mainnet_mirror_volumes "$mainnet_mirror_volumes" "$dir"/profile/node-specs.json)
-      nomad_create_task_stanza "$task_stanza_file" "$task_stanza_name" "$podman_volumes"
-cat "$task_stanza_file" >> "$dir/nomad/job-cluster.hcl"
+      jq ".job[\"workbench-cluster-job\"][\"group\"][\"workbench-cluster-job-group\"][\"task\"][\"$node\"][\"config\"][\"volumes\"] = \$podman_volumes" --argjson podman_volumes "$podman_volumes" $dir/nomad/nomad-job.json | sponge $dir/nomad/nomad-job.json
     done
     # Tracer
     local task_stanza_name_t="tracer"
-    local task_stanza_file_t="$dir/nomad/job-cluster-task-$task_stanza_name_t.hcl"
     # Tracer only needs access to itself.
     # *1 And remapping its own supervisor to the cluster/upper directory.
     # *2 And read only access to eveything else so supervisor.conf doesn't
@@ -916,11 +892,9 @@ cat "$task_stanza_file" >> "$dir/nomad/job-cluster.hcl"
       ( . | keys | map(\"${dir}/\" + . + \":${container_mountpoint}/\" + . + \":ro\") )
     "
     local podman_volumes_t=$(jq "$jq_filter_t" "$dir"/profile/node-specs.json)
-    nomad_create_task_stanza "$task_stanza_file_t" "$task_stanza_name_t" "$podman_volumes_t"
-cat "$task_stanza_file_t" >> "$dir/nomad/job-cluster.hcl"
+    jq ".job[\"workbench-cluster-job\"][\"group\"][\"workbench-cluster-job-group\"][\"task\"][\"tracer\"][\"config\"][\"volumes\"] = \$podman_volumes_t" --argjson podman_volumes_t "$podman_volumes_t" $dir/nomad/nomad-job.json | sponge $dir/nomad/nomad-job.json
     # Generator
     local task_stanza_name_g="generator"
-    local task_stanza_file_g="$dir/nomad/job-cluster-task-$task_stanza_name_g.hcl"
     # Generator needs access to itself, "./genesis", "./genesis/utxo-keys", every node inside its folder (with the genesis of every node).
     # *1 And remapping its own supervisor to the cluster/upper directory.
     # *2 And read only access to eveything else so supervisor.conf doesn't
@@ -945,648 +919,5 @@ cat "$task_stanza_file_t" >> "$dir/nomad/job-cluster.hcl"
       ( . | keys | map(\"${dir}/\" + . + \":${container_mountpoint}/\" + . + \":ro\") )
     "
     local podman_volumes_g=$(jq "$jq_filter_g" "$dir"/profile/node-specs.json)
-    nomad_create_task_stanza "$task_stanza_file_g" "$task_stanza_name_g" "$podman_volumes_g"
-cat "$task_stanza_file_g" >> "$dir/nomad/job-cluster.hcl"
-    # The end.
-cat >> "$dir/nomad/job-cluster.hcl" <<- EOF
-  }
+    jq ".job[\"workbench-cluster-job\"][\"group\"][\"workbench-cluster-job-group\"][\"task\"][\"generator\"][\"config\"][\"volumes\"] = \$podman_volumes_g" --argjson podman_volumes_g "$podman_volumes_g" $dir/nomad/nomad-job.json | sponge $dir/nomad/nomad-job.json
 }
-EOF
-}
-
-nomad_create_task_stanza() {
-    local file=$1
-    local name=$2
-    local podman_volumes=$3
-    local oci_image_name=$(                envjqr 'oci_image_name')
-    local oci_image_tag=$(                 envjqr 'oci_image_tag')
-    local container_workdir=$(             envjqr 'container_workdir')
-    local container_supervisor_nix=$(      envjqr 'container_supervisor_nix')
-    local container_supervisord_conf=$(    envjqr 'container_supervisord_conf')
-    local container_supervisord_loglevel=$(envjqr 'container_supervisord_loglevel')
-    cat > "$file" <<- EOF
-# The task stanza creates an individual unit of work, such as a
-# Docker container, web application, or batch processing.
-task "$name" {
-  driver = "podman"
-  # https://github.com/hashicorp/nomad-driver-podman#task-configuration
-  config {
-    # The image to run. Accepted transports are docker (default if missing),
-    # oci-archive and docker-archive. Images reference as short-names will be
-    # treated according to user-configured preferences.
-    image = "${oci_image_name}:${oci_image_tag}"
-    # Always pull the latest image on container start.
-    force_pull = false
-    # Podman redirects its combined stdout/stderr logstream directly to a Nomad
-    # fifo. Benefits of this mode are: zero overhead, don't have to worry about
-    # log rotation at system or Podman level. Downside: you cannot easily ship
-    # the logstream to a log aggregator plus stdout/stderr is multiplexed into a
-    # single stream.
-    logging = {
-      # The other option is: "journald"
-      driver = "nomad"
-    }
-    # The hostname to assign to the container. When launching more than one of a
-    # task (using count) with this option set, every container the task starts
-    # will have the same hostname.
-    hostname = "$name"
-    network_mode = "host"
-    # A list of /container_path strings for tmpfs mount points. See podman run
-    # --tmpfs options for details.
-    tmpfs = [
-      "/tmp"
-    ]
-    # A list of host_path:container_path:options strings to bind host paths to
-    # container paths. Named volumes are not supported.
-    volumes = ${podman_volumes}
-    # The working directory for the container. Defaults to the default set in
-    # the image.
-    working_dir = "${container_workdir}"
-  }
-  env = {
-    SUPERVISOR_NIX = "${container_supervisor_nix}"
-    SUPERVISORD_CONFIG = "${container_supervisord_conf}"
-    SUPERVISORD_LOGLEVEL = "${container_supervisord_loglevel}"
-  }
-  # Specifies the duration to wait for an application to gracefully quit before
-  # force-killing. Nomad first sends a kill_signal. If the task does not exit
-  # before the configured timeout, SIGKILL is sent to the task. Note that the
-  # value set here is capped at the value set for max_kill_timeout on the agent
-  # running the task, which has a default value of 30 seconds.
-  # Avoid: WARN[0120] StopSignal SIGTERM failed to stop container XXX in 10
-  # seconds, resorting to SIGKILL
-  kill_timeout = "15s"
-  # Specifies a configurable kill signal for a task, where the default is SIGINT
-  # (or SIGTERM for docker, or CTRL_BREAK_EVENT for raw_exec on Windows). Note
-  # that this is only supported for drivers sending signals (currently docker,
-  # exec, raw_exec, and java drivers).
-  kill_signal = "SIGINT"
-}
-EOF
-}
-
-# TODO: Finally!!! I can use JSON instead of HCL: "nomad job run --json FILE"
-# https://github.com/hashicorp/nomad/blob/main/CHANGELOG.md#130-may-11-2022
-# https://github.com/hashicorp/nomad/pull/12591
-# cat > "$dir/nomad/job-cluster.jq" <<- EOF
-# {
-#   "Job": {
-#       "Region": "workbench"
-#     , "Namespace": null
-#     , "ID": "cluster"
-#     , "Name": "cluster"
-#     , "Type": "service"
-#     , "Priority": null
-#     , "AllAtOnce": null
-#     , "Datacenters": [
-#         "workbench"
-#       ]
-#     , "Constraints": null
-#     , "Affinities": null
-#     , "Update": null
-#     , "Multiregion": null
-#     , "Spreads": null
-#     , "Periodic": null
-#     , "ParameterizedJob": null
-#     , "Reschedule": {
-#           "Attempts": 0
-#         , "Interval": null
-#         , "Delay": null
-#         , "DelayFunction": null
-#         , "MaxDelay": null
-#         , "Unlimited": false
-#       },
-#     , "Migrate": null
-#     , "Meta": null
-#     , "ConsulToken": null
-#     , "VaultToken": null
-#     , "Stop": null
-#     , "ParentID": null
-#     , "Dispatched": false
-#     , "DispatchIdempotencyToken": null
-#     , "Payload": null
-#     , "ConsulNamespace": null
-#     , "VaultNamespace": null
-#     , "NomadTokenID": null
-#     , "Status": null
-#     , "StatusDescription": null
-#     , "Stable": null
-#     , "Version": null
-#     , "SubmitTime": null
-#     , "CreateIndex": null
-#     , "ModifyIndex": null
-#     , "JobModifyIndex": nul
-#     , "TaskGroups": [
-#         {
-#             "Name": "cluster"
-#           , "Count": null,
-#           , "Constraints": null
-#           , "Affinities": null
-#           , "Spreads": null
-#           , "Volumes": null,
-#           , "RestartPolicy": {
-#                 "Interval": null
-#               , "Attempts": 0
-#               , "Delay": null
-#               , "Mode": "fail"
-#             }
-#           , "ReschedulePolicy": null
-#           , "EphemeralDisk": null
-#           , "Update": null
-#           , "Migrate": null
-#           , "Networks": [
-#               {
-#                   "Mode": "host"
-#                 , "Device": ""
-#                 , "CIDR": ""
-#                 , "IP": ""
-#                 , "DNS": null
-#                 , "ReservedPorts": null
-#                 , "DynamicPorts": null
-#                 , "Hostname": ""
-#                 , "MBits": null
-#               }
-#             ],
-#           , "Meta": null
-#           , "Services": null
-#           , "ShutdownDelay": null
-#           , "StopAfterClientDisconnect": null
-#           , "MaxClientDisconnect": null
-#           , "Scaling": null
-#           , "Consul": null
-#           , "Tasks": [
-#             ]
-#         }
-#       ]
-#   }
-# }
-# EOF
-
-#####################################################################
-# If you start nomad in "-dev" mode, this what its config looks like:
-#####################################################################
-
-# $ nomad agent-info -json
-# {
-#     "config": {
-#         "DataDir": "",
-#         "EnableSyslog": false,
-#         "Files": null,
-#         "HTTPAPIResponseHeaders": {},
-#         "TLSConfig": {
-#             "Checksum": "",
-#             "EnableHTTP": false,
-#             "KeyFile": "",
-#             "KeyLoader": {},
-#             "TLSCipherSuites": "",
-#             "TLSMinVersion": "",
-#             "TLSPreferServerCipherSuites": false,
-#             "CAFile": "",
-#             "VerifyServerHostname": false,
-#             "VerifyHTTPSClient": false,
-#             "EnableRPC": false,
-#             "RPCUpgradeMode": false,
-#             "CertFile": ""
-#         },
-#         "Vault": {
-#             "Addr": "https://vault.service.consul:8200",
-#             "ConnectionRetryIntv": 30000000000.0,
-#             "Enabled": null,
-#             "Namespace": "",
-#             "Role": "",
-#             "TLSKeyFile": "",
-#             "TLSServerName": "",
-#             "TLSCaPath": "",
-#             "TLSSkipVerify": null,
-#             "TLSCaFile": "",
-#             "AllowUnauthenticated": true,
-#             "TLSCertFile": "",
-#             "TaskTokenTTL": "",
-#             "Token": ""
-#         },
-#         "Addresses": {
-#             "Serf": "127.0.0.1",
-#             "HTTP": "127.0.0.1",
-#             "RPC": "127.0.0.1"
-#         },
-#         "Consul": {
-#             "Auth": "",
-#             "ClientAutoJoin": true,
-#             "KeyFile": "",
-#             "Tags": null,
-#             "Token": "",
-#             "Addr": "127.0.0.1:8500",
-#             "CAFile": "",
-#             "EnableSSL": false,
-#             "ServerHTTPCheckName": "Nomad Server HTTP Check",
-#             "ServerRPCCheckName": "Nomad Server RPC Check",
-#             "CertFile": "",
-#             "ClientHTTPCheckName": "Nomad Client HTTP Check",
-#             "Namespace": "",
-#             "VerifySSL": true,
-#             "ServerServiceName": "nomad",
-#             "AllowUnauthenticated": true,
-#             "AutoAdvertise": true,
-#             "ChecksUseAdvertise": false,
-#             "ClientServiceName": "nomad-client",
-#             "GRPCAddr": "",
-#             "ServerAutoJoin": true,
-#             "ServerSerfCheckName": "Nomad Server Serf Check",
-#             "ShareSSL": null,
-#             "Timeout": 5000000000.0
-#         },
-#         "DevMode": true,
-#         "NodeName": "",
-#         "Plugins": null,
-#         "Ports": {
-#             "HTTP": 4646.0,
-#             "RPC": 4647.0,
-#             "Serf": 4648.0
-#         },
-#         "Client": {
-#             "GCMaxAllocs": 50.0,
-#             "HostNetworks": null,
-#             "Servers": null,
-#             "ChrootEnv": {},
-#             "Enabled": true,
-#             "BridgeNetworkSubnet": "",
-#             "DisableRemoteExec": false,
-#             "MinDynamicPort": 20000.0,
-#             "AllocDir": "",
-#             "BridgeNetworkName": "",
-#             "Meta": {
-#                 "connect.gateway_image": "envoyproxy/envoy:v${NOMAD_envoy_version}",
-#                 "connect.log_level": "info",
-#                 "connect.proxy_concurrency": "1",
-#                 "connect.sidecar_image": "envoyproxy/envoy:v${NOMAD_envoy_version}"
-#             },
-#             "NetworkSpeed": 0.0,
-#             "NomadServiceDiscovery": true,
-#             "Artifact": {
-#                 "HgTimeout": "30m",
-#                 "S3Timeout": "30m",
-#                 "GCSTimeout": "30m",
-#                 "GitTimeout": "30m",
-#                 "HTTPMaxSize": "100GB",
-#                 "HTTPReadTimeout": "30m"
-#             },
-#             "ClientMaxPort": 14512.0,
-#             "GCInterval": 600000000000.0,
-#             "GCParallelDestroys": 2.0,
-#             "NoHostUUID": true,
-#             "ClientMinPort": 14000.0,
-#             "NetworkInterface": "lo",
-#             "GCInodeUsageThreshold": 99.0,
-#             "MaxDynamicPort": 32000.0,
-#             "NodeClass": "",
-#             "Options": {
-#                 "driver.raw_exec.enable": "true",
-#                 "driver.docker.volumes": "true",
-#                 "test.tighten_network_timeouts": "true"
-#             },
-#             "Reserved": {
-#                 "MemoryMB": 0.0,
-#                 "ReservedPorts": "",
-#                 "CPU": 0.0,
-#                 "Cores": "",
-#                 "DiskMB": 0.0
-#             },
-#             "BindWildcardDefaultHostNetwork": true,
-#             "CpuCompute": 0.0,
-#             "MaxKillTimeout": "30s",
-#             "TemplateConfig": {
-#                 "ConsulRetry": null,
-#                 "DisableSandbox": false,
-#                 "FunctionBlacklist": null,
-#                 "FunctionDenylist": [
-#                     "plugin",
-#                     "writeToFile"
-#                 ],
-#                 "NomadRetry": null,
-#                 "BlockQueryWaitTime": null,
-#                 "BlockQueryWaitTimeHCL": "",
-#                 "MaxStale": null,
-#                 "MaxStaleHCL": "",
-#                 "VaultRetry": null
-#             },
-#             "GCDiskUsageThreshold": 99.0,
-#             "HostVolumes": null,
-#             "CgroupParent": "",
-#             "MemoryMB": 0.0,
-#             "ReserveableCores": "",
-#             "ServerJoin": {
-#                 "RetryInterval": 30000000000.0,
-#                 "RetryJoin": [],
-#                 "RetryMaxAttempts": 0.0,
-#                 "StartJoin": null
-#             },
-#             "StateDir": "",
-#             "CNIConfigDir": "/opt/cni/config",
-#             "CNIPath": "/opt/cni/bin"
-#         },
-#         "DisableUpdateCheck": false,
-#         "LeaveOnInt": false,
-#         "LogRotateBytes": 0.0,
-#         "EnableDebug": true,
-#         "Region": "global",
-#         "ACL": {
-#             "Enabled": false,
-#             "PolicyTTL": 30000000000.0,
-#             "ReplicationToken": "",
-#             "TokenTTL": 30000000000.0
-#         },
-#         "LogFile": "",
-#         "Sentinel": {
-#             "Imports": null
-#         },
-#         "Telemetry": {
-#             "DisableDispatchedJobSummaryMetrics": false,
-#             "PublishAllocationMetrics": true,
-#             "StatsiteAddr": "",
-#             "CirconusCheckID": "",
-#             "CirconusCheckInstanceID": "",
-#             "CollectionInterval": "1s",
-#             "DataDogAddr": "",
-#             "CirconusCheckSearchTag": "",
-#             "CirconusCheckSubmissionURL": "",
-#             "CirconusSubmissionInterval": "",
-#             "DisableHostname": false,
-#             "CirconusAPIApp": "",
-#             "CirconusAPIToken": "",
-#             "CirconusCheckDisplayName": "",
-#             "CirconusCheckForceMetricActivation": "",
-#             "PrefixFilter": null,
-#             "PrometheusMetrics": true,
-#             "FilterDefault": null,
-#             "PublishNodeMetrics": true,
-#             "CirconusAPIURL": "",
-#             "CirconusBrokerID": "",
-#             "CirconusBrokerSelectTag": "",
-#             "CirconusCheckTags": "",
-#             "DataDogTags": null,
-#             "StatsdAddr": "",
-#             "UseNodeName": false
-#         },
-#         "UI": {
-#             "Vault": {
-#                 "BaseUIURL": ""
-#             },
-#             "Consul": {
-#                 "BaseUIURL": ""
-#             },
-#             "Enabled": true
-#         },
-#         "Audit": {
-#             "Enabled": null,
-#             "Filters": null,
-#             "Sinks": null
-#         },
-#         "Autopilot": {
-#             "CleanupDeadServers": null,
-#             "DisableUpgradeMigration": null,
-#             "EnableCustomUpgrades": null,
-#             "EnableRedundancyZones": null,
-#             "LastContactThreshold": 200000000.0,
-#             "MaxTrailingLogs": 250.0,
-#             "MinQuorum": 0.0,
-#             "ServerStabilizationTime": 10000000000.0
-#         },
-#         "BindAddr": "127.0.0.1",
-#         "Datacenter": "dc1",
-#         "LogLevel": "DEBUG",
-#         "LogRotateDuration": "",
-#         "LogRotateMaxFiles": 0.0,
-#         "Version": {
-#             "Revision": "",
-#             "Version": "1.3.5",
-#             "VersionMetadata": "",
-#             "VersionPrerelease": ""
-#         },
-#         "LeaveOnTerm": false,
-#         "PluginDir": "",
-#         "SyslogFacility": "LOCAL0",
-#         "AdvertiseAddrs": {
-#             "HTTP": "127.0.0.1:4646",
-#             "RPC": "127.0.0.1:4647",
-#             "Serf": "127.0.0.1:4648"
-#         },
-#         "DisableAnonymousSignature": true,
-#         "Limits": {
-#             "HTTPMaxConnsPerClient": 100.0,
-#             "HTTPSHandshakeTimeout": "5s",
-#             "RPCHandshakeTimeout": "5s",
-#             "RPCMaxConnsPerClient": 100.0
-#         },
-#         "LogJson": false,
-#         "Server": {
-#             "MinHeartbeatTTL": 0.0,
-#             "PlanRejectionTracker": {
-#                 "NodeThreshold": 100.0,
-#                 "NodeWindow": 300000000000.0,
-#                 "Enabled": false
-#             },
-#             "StartJoin": [],
-#             "ServerJoin": {
-#                 "StartJoin": null,
-#                 "RetryInterval": 30000000000.0,
-#                 "RetryJoin": [],
-#                 "RetryMaxAttempts": 0.0
-#             },
-#             "DataDir": "",
-#             "DeploymentQueryRateLimit": 0.0,
-#             "RaftProtocol": 3.0,
-#             "RetryInterval": 0.0,
-#             "RetryJoin": [],
-#             "RetryMaxAttempts": 0.0,
-#             "Search": {
-#                 "LimitResults": 100.0,
-#                 "MinTermLength": 2.0,
-#                 "FuzzyEnabled": true,
-#                 "LimitQuery": 20.0
-#             },
-#             "EnabledSchedulers": null,
-#             "JobGCInterval": "",
-#             "JobGCThreshold": "",
-#             "RedundancyZone": "",
-#             "LicenseEnv": "",
-#             "UpgradeVersion": "",
-#             "FailoverHeartbeatTTL": 0.0,
-#             "HeartbeatGrace": 0.0,
-#             "NodeGCThreshold": "",
-#             "RaftBoltConfig": null,
-#             "BootstrapExpect": 1.0,
-#             "DeploymentGCThreshold": "",
-#             "EnableEventBroker": true,
-#             "EventBufferSize": 100.0,
-#             "AuthoritativeRegion": "",
-#             "CSIVolumeClaimGCThreshold": "",
-#             "Enabled": true,
-#             "MaxHeartbeatsPerSecond": 0.0,
-#             "RaftMultiplier": null,
-#             "RejoinAfterLeave": false,
-#             "CSIPluginGCThreshold": "",
-#             "EvalGCThreshold": "",
-#             "NonVotingServer": false,
-#             "NumSchedulers": null,
-#             "DefaultSchedulerConfig": null,
-#             "LicensePath": ""
-#         }
-#     },
-#     "member": {
-#         "Addr": "127.0.0.1",
-#         "DelegateCur": 4,
-#         "DelegateMax": 5,
-#         "DelegateMin": 2,
-#         "Name": "HOSTNAME.global",
-#         "Port": 4648,
-#         "ProtocolCur": 2,
-#         "ProtocolMax": 5,
-#         "ProtocolMin": 1,
-#         "Status": "alive",
-#         "Tags": {
-#             "region": "global",
-#             "build": "1.3.5",
-#             "bootstrap": "1",
-#             "role": "nomad",
-#             "vsn": "1",
-#             "raft_vsn": "3",
-#             "rpc_addr": "127.0.0.1",
-#             "port": "4647",
-#             "dc": "dc1",
-#             "expect": "1",
-#             "id": "dd1798fb-cc99-cb49-fc4f-dfaa318cdaeb"
-#         }
-#     },
-#     "stats": {
-#         "raft": {
-#             "commit_index": "15",
-#             "protocol_version": "3",
-#             "protocol_version_min": "0",
-#             "snapshot_version_max": "1",
-#             "num_peers": "0",
-#             "term": "2",
-#             "snapshot_version_min": "0",
-#             "last_log_term": "2",
-#             "fsm_pending": "0",
-#             "applied_index": "15",
-#             "latest_configuration": "[{Suffrage:Voter ID:dd1798fb-cc99-cb49-fc4f-# dfaa318cdaeb Address:127.0.0.1:4647}]",
-#             "last_contact": "0",
-#             "last_log_index": "15",
-#             "latest_configuration_index": "0",
-#             "last_snapshot_index": "0",
-#             "last_snapshot_term": "0",
-#             "state": "Leader",
-#             "protocol_version_max": "3"
-#         },
-#         "serf": {
-#             "members": "1",
-#             "event_time": "1",
-#             "health_score": "0",
-#             "query_time": "1",
-#             "encrypted": "false",
-#             "coordinate_resets": "0",
-#             "left": "0",
-#             "event_queue": "0",
-#             "query_queue": "0",
-#             "failed": "0",
-#             "member_time": "1",
-#             "intent_queue": "0"
-#         },
-#         "runtime": {
-#             "kernel.name": "linux",
-#             "arch": "amd64",
-#             "version": "go1.19.1",
-#             "max_procs": "32",
-#             "goroutines": "229",
-#             "cpu_count": "32"
-#         },
-#         "vault": {
-#             "token_next_renewal_time": "",
-#             "tracked_for_revoked": "0",
-#             "token_ttl": "0s",
-#             "token_expire_time": "",
-#             "token_last_renewal_time": ""
-#         },
-#         "nomad": {
-#             "server": "true",
-#             "leader": "true",
-#             "leader_addr": "127.0.0.1:4647",
-#             "bootstrap": "true",
-#             "known_regions": "1"
-#         },
-#         "client": {
-#             "known_servers": "127.0.0.1:4647",
-#             "num_allocations": "0",
-#             "last_heartbeat": "344.334288ms",
-#             "heartbeat_ttl": "18.525481644s",
-#             "node_id": "0984fe0c-ec66-947c-9591-946b228bef6a"
-#         }
-#     }
-# }
-#
-# $ nomad node status -json
-# [
-#     {
-#         "Address": "127.0.0.1",
-#         "CreateIndex": 7,
-#         "Datacenter": "dc1",
-#         "Drain": false,
-#         "Drivers": {
-#             "qemu": {
-#                 "Attributes": null,
-#                 "Detected": false,
-#                 "HealthDescription": "",
-#                 "Healthy": false,
-#                 "UpdateTime": "2022-12-12T19:33:29.449697777Z"
-#             },
-#             "exec": {
-#                 "Attributes": null,
-#                 "Detected": false,
-#                 "HealthDescription": "Driver must run as root",
-#                 "Healthy": false,
-#                 "UpdateTime": "2022-12-12T19:33:29.449414346Z"
-#             },
-#             "java": {
-#                 "Attributes": null,
-#                 "Detected": false,
-#                 "HealthDescription": "Driver must run as root",
-#                 "Healthy": false,
-#                 "UpdateTime": "2022-12-12T19:33:29.449423032Z"
-#             },
-#             "raw_exec": {
-#                 "Attributes": {
-#                     "driver.raw_exec": "true"
-#                 },
-#                 "Detected": true,
-#                 "HealthDescription": "Healthy",
-#                 "Healthy": true,
-#                 "UpdateTime": "2022-12-12T19:33:29.449473176Z"
-#             },
-#             "mock_driver": {
-#                 "Attributes": {
-#                     "driver.mock": "true"
-#                 },
-#                 "Detected": true,
-#                 "HealthDescription": "Healthy",
-#                 "Healthy": true,
-#                 "UpdateTime": "2022-12-12T19:33:29.449495047Z"
-#             },
-#             "docker": {
-#                 "Attributes": null,
-#                 "Detected": false,
-#                 "HealthDescription": "Failed to connect to docker daemon",
-#                 "Healthy": false,
-#                 "UpdateTime": "2022-12-12T19:33:29.449609612Z"
-#             }
-#         },
-#         "ID": "0984fe0c-ec66-947c-9591-946b228bef6a",
-#         "LastDrain": null,
-#         "ModifyIndex": 9,
-#         "Name": "HOSTNAME",
-#         "NodeClass": "",
-#         "SchedulingEligibility": "eligible",
-#         "Status": "ready",
-#         "StatusDescription": "",
-#         "Version": "1.3.5"
-#     }
-# ]
