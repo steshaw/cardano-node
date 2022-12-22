@@ -1,0 +1,243 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans  #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Cardano.Node.Tracing.Tracers.KESInfo</span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#severityKESInfo"><span class="hs-identifier">severityKESInfo</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#namesForKESInfo"><span class="hs-identifier">namesForKESInfo</span></a></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#traceAsKESInfo"><span class="hs-identifier">traceAsKESInfo</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#docForgeKESInfo"><span class="hs-identifier">docForgeKESInfo</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.SOP.Strict</span></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Cardano.Logging</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Cardano.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier">All</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier">Show</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">show</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Cardano.Node.Queries.html"><span class="hs-identifier">Cardano.Node.Queries</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Cardano.Node.Queries.html#GetKESInfo"><span class="hs-identifier">GetKESInfo</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Cardano.Protocol.TPraos.OCert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">KESPeriod</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Ouroboros.Consensus.Block.Forging</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Ouroboros.Consensus.Node.Tracers</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TraceLabelCreds</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Ouroboros.Consensus.Protocol.Ledger.HotKey</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HotKey</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#traceAsKESInfo"><span class="hs-identifier hs-type">traceAsKESInfo</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679641333"><span class="annot"><a href="#local-6989586621679641333"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679641332"><span class="annot"><a href="#local-6989586621679641332"><span class="hs-identifier hs-type">blk</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Cardano.Node.Queries.html#GetKESInfo"><span class="hs-identifier hs-type">GetKESInfo</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679641332"><span class="hs-identifier hs-type">blk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679641333"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-type">Proxy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679641332"><span class="hs-identifier hs-type">blk</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Trace</span></span><span> </span><span class="annot"><a href="#local-6989586621679641333"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HotKey.KESInfo</span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Trace</span></span><span> </span><span class="annot"><a href="#local-6989586621679641333"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ForgeStateInfo</span></span><span> </span><span class="annot"><a href="#local-6989586621679641332"><span class="hs-identifier hs-type">blk</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span id="traceAsKESInfo"><span class="annot"><span class="annottext">traceAsKESInfo :: Proxy blk
+-&gt; Trace m (TraceLabelCreds KESInfo)
+-&gt; Trace m (TraceLabelCreds (ForgeStateInfo blk))
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#traceAsKESInfo"><span class="hs-identifier hs-var hs-var">traceAsKESInfo</span></a></span></span><span> </span><span id="local-6989586621679641331"><span class="annot"><span class="annottext">Proxy blk
+</span><a href="#local-6989586621679641331"><span class="hs-identifier hs-var">pr</span></a></span></span><span> </span><span id="local-6989586621679641330"><span class="annot"><span class="annottext">Trace m (TraceLabelCreds KESInfo)
+</span><a href="#local-6989586621679641330"><span class="hs-identifier hs-var">tr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy blk
+-&gt; Trace m (Maybe (TraceLabelCreds KESInfo))
+-&gt; Trace m (TraceLabelCreds (ForgeStateInfo blk))
+forall (m :: * -&gt; *) blk.
+(GetKESInfo blk, MonadIO m) =&gt;
+Proxy blk
+-&gt; Trace m (Maybe (TraceLabelCreds KESInfo))
+-&gt; Trace m (TraceLabelCreds (ForgeStateInfo blk))
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#traceAsMaybeKESInfo"><span class="hs-identifier hs-var">traceAsMaybeKESInfo</span></a></span><span> </span><span class="annot"><span class="annottext">Proxy blk
+</span><a href="#local-6989586621679641331"><span class="hs-identifier hs-var">pr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Trace m (TraceLabelCreds KESInfo)
+-&gt; Trace m (Maybe (TraceLabelCreds KESInfo))
+forall (m :: * -&gt; *) a. Monad m =&gt; Trace m a -&gt; Trace m (Maybe a)
+</span><span class="hs-identifier hs-var">filterTraceMaybe</span></span><span> </span><span class="annot"><span class="annottext">Trace m (TraceLabelCreds KESInfo)
+</span><a href="#local-6989586621679641330"><span class="hs-identifier hs-var">tr</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#traceAsMaybeKESInfo"><span class="hs-identifier hs-type">traceAsMaybeKESInfo</span></a></span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679641372"><span class="annot"><a href="#local-6989586621679641372"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679641374"><span class="annot"><a href="#local-6989586621679641374"><span class="hs-identifier hs-type">blk</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Cardano.Node.Queries.html#GetKESInfo"><span class="hs-identifier hs-type">GetKESInfo</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679641374"><span class="hs-identifier hs-type">blk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679641372"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-type">Proxy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679641374"><span class="hs-identifier hs-type">blk</span></a></span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Trace</span></span><span> </span><span class="annot"><a href="#local-6989586621679641372"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HotKey.KESInfo</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Trace</span></span><span> </span><span class="annot"><a href="#local-6989586621679641372"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ForgeStateInfo</span></span><span> </span><span class="annot"><a href="#local-6989586621679641374"><span class="hs-identifier hs-type">blk</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span id="traceAsMaybeKESInfo"><span class="annot"><span class="annottext">traceAsMaybeKESInfo :: Proxy blk
+-&gt; Trace m (Maybe (TraceLabelCreds KESInfo))
+-&gt; Trace m (TraceLabelCreds (ForgeStateInfo blk))
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#traceAsMaybeKESInfo"><span class="hs-identifier hs-var hs-var">traceAsMaybeKESInfo</span></a></span></span><span> </span><span id="local-6989586621679641327"><span class="annot"><span class="annottext">Proxy blk
+</span><a href="#local-6989586621679641327"><span class="hs-identifier hs-var">pr</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Trace</span></span><span> </span><span id="local-6989586621679641325"><span class="annot"><span class="annottext">Tracer
+  m
+  (LoggingContext,
+   Either TraceControl (Maybe (TraceLabelCreds KESInfo)))
+</span><a href="#local-6989586621679641325"><span class="hs-identifier hs-var">tr</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tracer
+  m
+  (LoggingContext,
+   Either TraceControl (TraceLabelCreds (ForgeStateInfo blk)))
+-&gt; Trace m (TraceLabelCreds (ForgeStateInfo blk))
+forall (m :: * -&gt; *) a.
+Tracer m (LoggingContext, Either TraceControl a) -&gt; Trace m a
+</span><span class="hs-identifier hs-var">Trace</span></span><span> </span><span class="annot"><span class="annottext">(Tracer
+   m
+   (LoggingContext,
+    Either TraceControl (TraceLabelCreds (ForgeStateInfo blk)))
+ -&gt; Trace m (TraceLabelCreds (ForgeStateInfo blk)))
+-&gt; Tracer
+     m
+     (LoggingContext,
+      Either TraceControl (TraceLabelCreds (ForgeStateInfo blk)))
+-&gt; Trace m (TraceLabelCreds (ForgeStateInfo blk))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><span class="annottext">((LoggingContext,
+  Either TraceControl (TraceLabelCreds (ForgeStateInfo blk)))
+ -&gt; (LoggingContext,
+     Either TraceControl (Maybe (TraceLabelCreds KESInfo))))
+-&gt; Tracer
+     m
+     (LoggingContext,
+      Either TraceControl (Maybe (TraceLabelCreds KESInfo)))
+-&gt; Tracer
+     m
+     (LoggingContext,
+      Either TraceControl (TraceLabelCreds (ForgeStateInfo blk)))
+forall (f :: * -&gt; *) a b. Contravariant f =&gt; (a -&gt; b) -&gt; f b -&gt; f a
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-var">contramap</span></a></span><span>
+</span><span id="line-43"></span><span>        </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-44"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679641323"><span class="annot"><span class="annottext">LoggingContext
+</span><a href="#local-6989586621679641323"><span class="hs-identifier hs-var">lc</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span id="local-6989586621679641321"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679641321"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621679641320"><span class="annot"><span class="annottext">ForgeStateInfo blk
+</span><a href="#local-6989586621679641320"><span class="hs-identifier hs-var">e</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-45"></span><span>            </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Proxy blk -&gt; ForgeStateInfo blk -&gt; Maybe KESInfo
+forall blk.
+GetKESInfo blk =&gt;
+Proxy blk -&gt; ForgeStateInfo blk -&gt; Maybe KESInfo
+</span><a href="Cardano.Node.Queries.html#getKESInfoFromStateInfo"><span class="hs-identifier hs-var">getKESInfoFromStateInfo</span></a></span><span> </span><span class="annot"><span class="annottext">Proxy blk
+</span><a href="#local-6989586621679641327"><span class="hs-identifier hs-var">pr</span></a></span><span> </span><span class="annot"><span class="annottext">ForgeStateInfo blk
+</span><a href="#local-6989586621679641320"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-46"></span><span>              </span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679641318"><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641318"><span class="hs-identifier hs-var">kesi</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LoggingContext
+</span><a href="#local-6989586621679641323"><span class="hs-identifier hs-var">lc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (TraceLabelCreds KESInfo)
+-&gt; Either TraceControl (Maybe (TraceLabelCreds KESInfo))
+forall a b. b -&gt; Either a b
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TraceLabelCreds KESInfo -&gt; Maybe (TraceLabelCreds KESInfo)
+forall a. a -&gt; Maybe a
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; KESInfo -&gt; TraceLabelCreds KESInfo
+forall a. Text -&gt; a -&gt; TraceLabelCreds a
+</span><span class="hs-identifier hs-var">TraceLabelCreds</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679641321"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641318"><span class="hs-identifier hs-var">kesi</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>              </span><span class="annot"><span class="annottext">Maybe KESInfo
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-var">Nothing</span></a></span><span>   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LoggingContext
+</span><a href="#local-6989586621679641323"><span class="hs-identifier hs-var">lc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (TraceLabelCreds KESInfo)
+-&gt; Either TraceControl (Maybe (TraceLabelCreds KESInfo))
+forall a b. b -&gt; Either a b
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TraceLabelCreds KESInfo)
+forall a. Maybe a
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679641317"><span class="annot"><span class="annottext">LoggingContext
+</span><a href="#local-6989586621679641317"><span class="hs-identifier hs-var">lc</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679641316"><span class="annot"><span class="annottext">TraceControl
+</span><a href="#local-6989586621679641316"><span class="hs-identifier hs-var">ctrl</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LoggingContext
+</span><a href="#local-6989586621679641317"><span class="hs-identifier hs-var">lc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TraceControl
+-&gt; Either TraceControl (Maybe (TraceLabelCreds KESInfo))
+forall a b. a -&gt; Either a b
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">TraceControl
+</span><a href="#local-6989586621679641316"><span class="hs-identifier hs-var">ctrl</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>        </span><span class="annot"><span class="annottext">Tracer
+  m
+  (LoggingContext,
+   Either TraceControl (Maybe (TraceLabelCreds KESInfo)))
+</span><a href="#local-6989586621679641325"><span class="hs-identifier hs-var">tr</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- KESInfo Tracer</span><span>
+</span><span id="line-53"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#severityKESInfo"><span class="hs-identifier hs-type">severityKESInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HotKey.KESInfo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SeverityS</span></span><span>
+</span><span id="line-56"></span><span id="severityKESInfo"><span class="annot"><span class="annottext">severityKESInfo :: TraceLabelCreds KESInfo -&gt; SeverityS
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#severityKESInfo"><span class="hs-identifier hs-var hs-var">severityKESInfo</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span id="local-6989586621679641315"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679641315"><span class="hs-identifier hs-var">_creds</span></a></span></span><span> </span><span id="local-6989586621679641314"><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641314"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">KESInfo -&gt; SeverityS
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#severityKESInfo%27"><span class="hs-identifier hs-var">severityKESInfo'</span></a></span><span>  </span><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641314"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#severityKESInfo%27"><span class="hs-identifier hs-type">severityKESInfo'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HotKey.KESInfo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SeverityS</span></span><span>
+</span><span id="line-59"></span><span id="severityKESInfo%27"><span class="annot"><span class="annottext">severityKESInfo' :: KESInfo -&gt; SeverityS
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#severityKESInfo%27"><span class="hs-identifier hs-var hs-var">severityKESInfo'</span></a></span></span><span> </span><span id="local-6989586621679641312"><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641312"><span class="hs-identifier hs-var">forgeStateInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679641311"><span class="annot"><span class="annottext">maxKesEvos :: Word
+</span><a href="#local-6989586621679641311"><span class="hs-identifier hs-var hs-var">maxKesEvos</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641310"><span class="hs-identifier hs-var">endKesPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">Word -&gt; Word -&gt; Word
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641309"><span class="hs-identifier hs-var">startKesPeriod</span></a></span><span>
+</span><span id="line-61"></span><span>        </span><span id="local-6989586621679641308"><span class="annot"><span class="annottext">oCertExpiryKesPeriod :: Word
+</span><a href="#local-6989586621679641308"><span class="hs-identifier hs-var hs-var">oCertExpiryKesPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641309"><span class="hs-identifier hs-var">startKesPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">Word -&gt; Word -&gt; Word
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641311"><span class="hs-identifier hs-var">maxKesEvos</span></a></span><span>
+</span><span id="line-62"></span><span>        </span><span id="local-6989586621679641306"><span class="annot"><span class="annottext">kesPeriodsUntilExpiry :: Word
+</span><a href="#local-6989586621679641306"><span class="hs-identifier hs-var hs-var">kesPeriodsUntilExpiry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word -&gt; Word -&gt; Word
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/ghc-prim-0.6.1/src"><span class="hs-identifier hs-var">max</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641308"><span class="hs-identifier hs-var">oCertExpiryKesPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">Word -&gt; Word -&gt; Word
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/base-4.14.3.0/src"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641304"><span class="hs-identifier hs-var">currKesPeriod</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641306"><span class="hs-identifier hs-var">kesPeriodsUntilExpiry</span></a></span><span> </span><span class="annot"><span class="annottext">Word -&gt; Word -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/ghc-prim-0.6.1/src"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">7</span></span><span>
+</span><span id="line-64"></span><span>      </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">SeverityS
+</span><span class="hs-identifier hs-var">Info</span></span><span>
+</span><span id="line-65"></span><span>      </span><span class="hs-keyword">else</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641306"><span class="hs-identifier hs-var">kesPeriodsUntilExpiry</span></a></span><span> </span><span class="annot"><span class="annottext">Word -&gt; Word -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/ghc-prim-0.6.1/src"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-66"></span><span>        </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">SeverityS
+</span><span class="hs-identifier hs-var">Alert</span></span><span>
+</span><span id="line-67"></span><span>        </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">SeverityS
+</span><span class="hs-identifier hs-var">Warning</span></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">HotKey.KESInfo</span></span><span>
+</span><span id="line-70"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">kesStartPeriod :: KESInfo -&gt; KESPeriod
+</span><span class="hs-identifier hs-var">HotKey.kesStartPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KESPeriod</span></span><span> </span><span id="local-6989586621679641309"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641309"><span class="hs-identifier hs-var">startKesPeriod</span></a></span></span><span>
+</span><span id="line-71"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">kesEvolution :: KESInfo -&gt; Word
+</span><span class="hs-identifier hs-var">HotKey.kesEvolution</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679641304"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641304"><span class="hs-identifier hs-var">currKesPeriod</span></a></span></span><span>
+</span><span id="line-72"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">kesEndPeriod :: KESInfo -&gt; KESPeriod
+</span><span class="hs-identifier hs-var">HotKey.kesEndPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KESPeriod</span></span><span> </span><span id="local-6989586621679641310"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679641310"><span class="hs-identifier hs-var">endKesPeriod</span></a></span></span><span>
+</span><span id="line-73"></span><span>      </span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641312"><span class="hs-identifier hs-var">forgeStateInfo</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#namesForKESInfo"><span class="hs-identifier hs-type">namesForKESInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HotKey.KESInfo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/text-1.2.4.1/src"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-76"></span><span id="namesForKESInfo"><span class="annot"><span class="annottext">namesForKESInfo :: TraceLabelCreds KESInfo -&gt; [Text]
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#namesForKESInfo"><span class="hs-identifier hs-var hs-var">namesForKESInfo</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span id="local-6989586621679641293"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679641293"><span class="hs-identifier hs-var">_creds</span></a></span></span><span> </span><span id="local-6989586621679641292"><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641292"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">KESInfo -&gt; [Text]
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#namesForKESInfo%27"><span class="hs-identifier hs-var">namesForKESInfo'</span></a></span><span> </span><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641292"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#namesForKESInfo%27"><span class="hs-identifier hs-type">namesForKESInfo'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HotKey.KESInfo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="../file:///home/runner/.ghcup/ghc/8.10.7/share/doc/ghc-8.10.7/html/libraries/text-1.2.4.1/src"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-79"></span><span id="namesForKESInfo%27"><span class="annot"><span class="annottext">namesForKESInfo' :: KESInfo -&gt; [Text]
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#namesForKESInfo%27"><span class="hs-identifier hs-var hs-var">namesForKESInfo'</span></a></span></span><span> </span><span id="local-6989586621679641290"><span class="annot"><span class="annottext">KESInfo
+</span><a href="#local-6989586621679641290"><span class="hs-identifier hs-var">_fsi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="annot"><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#docForgeKESInfo"><span class="hs-identifier hs-type">docForgeKESInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Documented</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TraceLabelCreds</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HotKey.KESInfo</span></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span id="docForgeKESInfo"><span class="annot"><span class="annottext">docForgeKESInfo :: Documented (TraceLabelCreds KESInfo)
+</span><a href="Cardano.Node.Tracing.Tracers.KESInfo.html#docForgeKESInfo"><span class="hs-identifier hs-var hs-var">docForgeKESInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[DocMsg (TraceLabelCreds KESInfo)]
+-&gt; Documented (TraceLabelCreds KESInfo)
+forall a. [DocMsg a] -&gt; Documented a
+</span><span class="hs-identifier hs-var">Documented</span></span><span> </span><span class="hs-special">[</span><span>
+</span><span id="line-83"></span><span>    </span><span class="annot"><span class="annottext">[Text]
+-&gt; [(Text, Text)] -&gt; Text -&gt; DocMsg (TraceLabelCreds KESInfo)
+forall a. [Text] -&gt; [(Text, Text)] -&gt; Text -&gt; DocMsg a
+</span><span class="hs-identifier hs-var">DocMsg</span></span><span>
+</span><span id="line-84"></span><span>      </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-85"></span><span>      </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-86"></span><span>      </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;kesStartPeriod \
+      \\nkesEndPeriod is kesStartPeriod + tpraosMaxKESEvo\
+      \\nkesEvolution is the current evolution or /relative period/.&quot;</span></span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-90"></span></pre></body></html>
