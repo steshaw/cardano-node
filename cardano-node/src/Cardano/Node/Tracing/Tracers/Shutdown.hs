@@ -12,7 +12,7 @@ module Cardano.Node.Tracing.Tracers.Shutdown
 import           Data.Aeson (Value (..), (.=))
 import           Data.Monoid (mconcat, (<>))
 import           Data.Text (Text, pack)
-import           Prelude (error, show)
+import           Prelude (error, show, Maybe(..))
 
 import           Cardano.Logging
 import           Cardano.Node.Handlers.Shutdown
@@ -61,31 +61,30 @@ instance MetaTrace ShutdownTrace where
     Namespace [] ["ArmedAt"]
 
   severityFor  (Namespace _ ["Requested"]) _ =
-    Warning
+    Just Warning
   severityFor  (Namespace _ ["Abnormal"]) _ =
-    Error
+    Just Error
   severityFor  (Namespace _ ["UnexpectedInput"]) _ =
-    Error
+    Just Error
   severityFor  (Namespace _ ["Requesting"]) _ =
-    Warning
+    Just Warning
   severityFor  (Namespace _ ["ArmedAt"]) _ =
-    Warning
-  severityFor ns _ =
-    error ("ShutdownTrace>>severityFor: Unknown namespace " <> show ns)
+    Just Warning
+  severityFor _ns _ =
+    Nothing
 
   documentFor  (Namespace _ ["Requested"]) =
-    "Node shutdown was requested."
+    Just "Node shutdown was requested."
   documentFor  (Namespace _ ["Abnormal"]) =
-    "non-isEOFerror shutdown request"
+    Just "non-isEOFerror shutdown request"
   documentFor  (Namespace _ ["UnexpectedInput"]) =
-    "Received shutdown request but found unexpected input in --shutdown-ipc FD: "
+    Just "Received shutdown request but found unexpected input in --shutdown-ipc FD: "
   documentFor  (Namespace _ ["Requesting"]) =
-    "Ringing the node shutdown doorbell"
+    Just "Ringing the node shutdown doorbell"
   documentFor  (Namespace _ ["ArmedAt"])  =
-    "Setting up node shutdown at given slot / block."
-  documentFor ns =
-     error ("ShutdownTrace>>documentFor: Unknown namespace " <> show ns)
-
+    Just "Setting up node shutdown at given slot / block."
+  documentFor _ns =
+    Nothing
 
   allNamespaces =
     [ Namespace [] ["Requested"]

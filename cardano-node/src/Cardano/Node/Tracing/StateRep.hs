@@ -137,42 +137,41 @@ instance MetaTrace NodeState where
     Namespace [] ["NodeShutdown"]
 
   severityFor  (Namespace _ ["NodeTracingOnlineConfiguring"]) _ =
-    Info
+    Just Info
   severityFor  (Namespace _ ["OpeningDbs"]) _ =
-    Info
+    Just Info
   severityFor  (Namespace _ ["NodeReplays"]) _ =
-    Notice
+    Just Notice
   severityFor  (Namespace _ ["NodeInitChainSelection"]) _ =
-    Notice
+    Just Notice
   severityFor  (Namespace _ ["NodeKernelOnline"]) _ =
-    Info
+    Just Info
   severityFor  (Namespace _ ["NodeAddBlockp"]) _ =
-    Notice
+    Just Notice
   severityFor  (Namespace _ ["NodeStartup"]) _ =
-    Info
+    Just Info
   severityFor  (Namespace _ ["NodeShutdown"]) _ =
-    Warning
-  severityFor ns _ =
-    error ("NodeState>>severityFor: Unknown namespace " ++ show ns)
+    Just Warning
+  severityFor _ns _ =
+    Nothing
 
-  documentFor  (Namespace _ ["NodeTracingOnlineConfiguring"]) =
+  documentFor  (Namespace _ ["NodeTracingOnlineConfiguring"]) = Just
     "Tracing system came online, system configuring now"
-  documentFor  (Namespace _ ["OpeningDbs"]) =
+  documentFor  (Namespace _ ["OpeningDbs"]) = Just
     "ChainDB components being opened"
-  documentFor  (Namespace _ ["NodeReplays"]) =
+  documentFor  (Namespace _ ["NodeReplays"]) = Just
     "Replaying chain"
-  documentFor  (Namespace _ ["NodeInitChainSelection"]) =
+  documentFor  (Namespace _ ["NodeInitChainSelection"]) = Just
     "Performing initial chain selection"
-  documentFor  (Namespace _ ["NodeKernelOnline"]) =
+  documentFor  (Namespace _ ["NodeKernelOnline"]) = Just
     ""
-  documentFor  (Namespace _ ["NodeAddBlockp"]) =
+  documentFor  (Namespace _ ["NodeAddBlockp"]) = Just
    "Applying block"
-  documentFor  (Namespace _ ["NodeStartup"]) =
+  documentFor  (Namespace _ ["NodeStartup"]) = Just
     "Node startup"
-  documentFor  (Namespace _ ["NodeShutdown"]) =
+  documentFor  (Namespace _ ["NodeShutdown"]) = Just
     "Node shutting down"
-  documentFor ns =
-     error ("NodeState>>documentFor: Unknown namespace " ++ show ns)
+  documentFor _ns = Nothing
   allNamespaces = [ Namespace [] ["NodeStartupInfo"]]
 
 

@@ -275,75 +275,73 @@ instance MetaTrace  (StartupTrace blk) where
   namespaceFor BINetwork {}  =
     Namespace [] ["Network"]
 
-  severityFor (Namespace _ ["SocketConfigError"]) _ = Error
-  severityFor (Namespace _ ["NetworkConfigUpdate"]) _ = Notice
-  severityFor (Namespace _ ["NetworkConfigUpdateError"]) _ = Error
-  severityFor (Namespace _ ["NetworkConfigUpdateUnsupported"]) _ = Warning
-  severityFor (Namespace _ ["P2PWarning"]) _ = Warning
-  severityFor (Namespace _ ["P2PWarningDevelopementNetworkProtocols"]) _ = Warning
-  severityFor (Namespace _ ["WarningDevelopmentNetworkProtocols"]) _ = Warning
-  severityFor _ _ = Info
+  severityFor (Namespace _ ["SocketConfigError"]) _ = Just Error
+  severityFor (Namespace _ ["NetworkConfigUpdate"]) _ = Just Notice
+  severityFor (Namespace _ ["NetworkConfigUpdateError"]) _ = Just Error
+  severityFor (Namespace _ ["NetworkConfigUpdateUnsupported"]) _ = Just Warning
+  severityFor (Namespace _ ["P2PWarning"]) _ = Just Warning
+  severityFor (Namespace _ ["P2PWarningDevelopementNetworkProtocols"]) _ = Just Warning
+  severityFor (Namespace _ ["WarningDevelopmentNetworkProtocols"]) _ = Just Warning
+  severityFor _ _ = Just Info
 
-  documentFor (Namespace [] ["Info"]) =
+  documentFor (Namespace [] ["Info"]) = Just
     ""
-  documentFor (Namespace [] ["P2PInfo"]) =
+  documentFor (Namespace [] ["P2PInfo"]) = Just
     ""
-  documentFor (Namespace [] ["Time"]) =
+  documentFor (Namespace [] ["Time"]) = Just
     ""
-  documentFor (Namespace [] ["NetworkMagic"]) =
+  documentFor (Namespace [] ["NetworkMagic"]) = Just
     ""
-  documentFor (Namespace [] ["SocketConfigError"]) =
+  documentFor (Namespace [] ["SocketConfigError"]) = Just
     ""
-  documentFor (Namespace [] ["DBValidation"]) =
+  documentFor (Namespace [] ["DBValidation"]) = Just
     ""
-  documentFor (Namespace [] ["NetworkConfigUpdate"]) =
+  documentFor (Namespace [] ["NetworkConfigUpdate"]) = Just
     ""
-  documentFor (Namespace [] ["NetworkConfigUpdateUnsupported"]) =
+  documentFor (Namespace [] ["NetworkConfigUpdateUnsupported"]) = Just
     ""
-  documentFor (Namespace [] ["NetworkConfigUpdateError"]) =
+  documentFor (Namespace [] ["NetworkConfigUpdateError"]) = Just
     ""
-  documentFor (Namespace [] ["NetworkConfig"]) =
+  documentFor (Namespace [] ["NetworkConfig"]) = Just
     ""
-  documentFor (Namespace [] ["NetworkConfigLegacy"]) =
+  documentFor (Namespace [] ["NetworkConfigLegacy"]) = Just
     ""
-  documentFor (Namespace [] ["P2PWarning"]) =
+  documentFor (Namespace [] ["P2PWarning"]) = Just
     ""
-  documentFor (Namespace [] ["P2PWarningDevelopementNetworkProtocols"]) =
+  documentFor (Namespace [] ["P2PWarningDevelopementNetworkProtocols"]) = Just
     ""
-  documentFor (Namespace [] ["WarningDevelopmentNetworkProtocols"]) =
+  documentFor (Namespace [] ["WarningDevelopmentNetworkProtocols"]) = Just
     ""
-  documentFor (Namespace [] ["Common"]) =
+  documentFor (Namespace [] ["Common"]) = Just
     "_biConfigPath_: is the path to the config in use. \
       \\n_biProtocol_: is the name of the protocol, e.g. \"Byron\", \"Shelley\" \
       \or \"Byron; Shelley\". \
       \\n_biVersion_: is the version of the node software running. \
       \\n_biCommit_: is the commit revision of the software running. \
       \\n_biNodeStartTime_: gives the time this node was started."
-  documentFor (Namespace [] ["ShelleyBased"]) =
+  documentFor (Namespace [] ["ShelleyBased"]) = Just
     "bisEra is the current era, e.g. \"Shelley\", \"Allegra\", \"Mary\" \
       \or \"Alonzo\". \
       \\n_bisSystemStartTime_: TODO JNF \
       \\n_bisSlotLength_: gives the length of a slot as time interval. \
       \\n_bisEpochLength_: gives the number of slots which forms an epoch. \
       \\n_bisSlotsPerKESPeriod_: gives the slots per KES period."
-  documentFor (Namespace [] ["Byron"]) =
+  documentFor (Namespace [] ["Byron"]) = Just
     "_bibSystemStartTime_: \
       \\n_bibSlotLength_: gives the length of a slot as time interval. \
       \\n_bibEpochLength_: gives the number of slots which forms an epoch."
-  documentFor (Namespace [] ["Network"]) =
+  documentFor (Namespace [] ["Network"]) = Just
     "_niAddresses_: IPv4 or IPv6 socket ready to accept connections\
       \or diffusion addresses. \
       \\n_niDiffusionMode_: shows if the node runs only initiator or both\
       \initiator or responder node. \
       \\n_niDnsProducers_: shows the list of domain names to subscribe to. \
       \\n_niIpProducers_: shows the list of ip subscription addresses."
-  documentFor ns =
-     error ("PeerT>>documentFor: Unknown namespace " ++ show ns)
+  documentFor _ns = Nothing
 
-  metricsDocFor _ =
+  metricsDocFor _ = Just
     [("Net.PeersFromNodeKernel","")]
-  metricsDocFor ns =
-     error ("PeerT>>metricsDocFor: Unknown namespace " ++ show ns)
+  metricsDocFor ns = Nothing
 
   allNamespaces =
     [ Namespace [] ["Info"]

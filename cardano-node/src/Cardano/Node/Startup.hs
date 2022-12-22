@@ -162,10 +162,10 @@ instance MetaTrace NodeInfo where
   namespaceFor NodeInfo {}  =
     Namespace [] ["NodeInfo"]
   severityFor  (Namespace _ ["NodeInfo"]) _ =
-    Info
-  severityFor ns _ =
-    error ("NodeInfo>>severityFor: Unknown namespace " ++ show ns)
-  documentFor  (Namespace _ ["NodeInfo"]) =
+    Just Info
+  severityFor _ns _ =
+    Nothing
+  documentFor  (Namespace _ ["NodeInfo"]) = Just
     "Basic information about this node collected at startup\
         \\n\
         \\n _niName_: Name of the node. \
@@ -173,8 +173,8 @@ instance MetaTrace NodeInfo where
         \\n _niVersion_: Software version which this node is using. \
         \\n _niStartTime_: Start time of this node. \
         \\n _niSystemStartTime_: How long did the start of the node took."
-  documentFor ns =
-     error ("NodeInfo>>documentFor: Unknown namespace " ++ show ns)
+  documentFor _ns =
+     Nothing
   allNamespaces = [ Namespace [] ["NodeInfo"]]
 
 
@@ -245,16 +245,16 @@ instance MetaTrace NodeStartupInfo where
   namespaceFor NodeStartupInfo {}  =
     Namespace [] ["NodeStartupInfo"]
   severityFor  (Namespace _ ["NodeStartupInfo"]) _ =
-    Info
-  severityFor ns _ =
-    error ("NodeInfo>>severityFor: Unknown namespace " ++ show ns)
-  documentFor  (Namespace _ ["NodeStartupInfo"]) =
+    Just Info
+  severityFor _ns _ =
+    Nothing
+  documentFor  (Namespace _ ["NodeStartupInfo"]) = Just
     "Startup information about this node, required for RTView\
         \\n\
         \\n _suiEra_: Name of the current era. \
         \\n _suiSlotLength_: Slot length, in seconds. \
         \\n _suiEpochLength_: Epoch length, in slots. \
         \\n _suiSlotsPerKESPeriod_: KES period length, in slots."
-  documentFor ns =
-     error ("NodeInfo>>documentFor: Unknown namespace " ++ show ns)
+  documentFor _ns =
+     Nothing
   allNamespaces = [ Namespace [] ["NodeStartupInfo"]]

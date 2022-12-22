@@ -29,13 +29,13 @@ instance MetaTrace NodePeers where
   namespaceFor NodePeers {}  =
     Namespace [] ["NodePeers"]
   severityFor  (Namespace _ ["NodePeers"]) _ =
-    Info
-  severityFor ns _ =
-    error ("NodePeers>>severityFor: Unknown namespace " ++ show ns)
+    Just Info
+  severityFor _ns _ =
+    Nothing
   documentFor  (Namespace _ ["NodePeers"]) =
-    ""
-  documentFor ns =
-     error ("NodePeers>>documentFor: Unknown namespace " ++ show ns)
+    Just ""
+  documentFor _ns =
+    Nothing
   allNamespaces = [ Namespace [] ["NodePeers"]]
 
 traceNodePeers

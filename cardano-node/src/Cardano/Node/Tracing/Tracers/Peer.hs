@@ -141,18 +141,17 @@ instance MetaTrace [PeerT blk] where
   namespaceFor _  =
     Namespace [] ["PeersFromNodeKernel"]
   severityFor  (Namespace _ ["PeersFromNodeKernel"]) (Just []) =
-    Debug
+    Just Debug
   severityFor  (Namespace _ ["PeersFromNodeKernel"]) _ =
-    Info
-  severityFor ns _ =
-    error ("PeerT>>severityFor: Unknown namespace " ++ show ns)
+    Just Info
+  severityFor _ns _ =
+    Nothing
   documentFor (Namespace _ ["PeersFromNodeKernel"]) =
-    ""
-  documentFor ns =
-     error ("PeerT>>documentFor: Unknown namespace " ++ show ns)
+    Just ""
+  documentFor _ns =
+    Nothing
   metricsDocFor (Namespace _ ["PeersFromNodeKernel"]) =
-    [("Net.PeersFromNodeKernel","")]
-  metricsDocFor ns =
-     error ("PeerT>>metricsDocFor: Unknown namespace " ++ show ns)
-
+    Just [("Net.PeersFromNodeKernel","")]
+  metricsDocFor _ns =
+    Nothing
   allNamespaces = [ Namespace [] ["PeersFromNodeKernel"]]
