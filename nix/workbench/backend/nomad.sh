@@ -429,11 +429,15 @@ case "$op" in
         local usage="USAGE: wb nomad $op RUN-DIR"
         local dir=${1:?$usage}; shift
         local nomad_alloc_id=$(envjqr 'nomad_alloc_id')
+        local nomad_job_name=$(envjqr 'nomad_job_name')
 
         msg "Stopping generator inside its container ..."
         backend_nomad nomad-alloc-exec-supervisorctl "$dir" generator stop all || true
-        msg "Stopping tracer inside its container ..."
-        backend_nomad nomad-alloc-exec-supervisorctl "$dir" tracer stop all || true
+        if jqtest ".node.tracer" "$dir"/profile.json
+        then
+          msg "Stopping tracer inside its container ..."
+          backend_nomad nomad-alloc-exec-supervisorctl "$dir" tracer stop all || true
+        fi
         for node in $(jq_tolist 'keys' "$dir"/node-specs.json)
         do
             msg "Stopping $node inside its container ..."
