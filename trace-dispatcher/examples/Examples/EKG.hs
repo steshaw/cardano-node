@@ -24,10 +24,10 @@ instance LogFormatting Measure where
 
 instance MetaTrace Measure where
   namespaceFor (Measure _count) = Namespace [] ["Count"]
-  severityFor (Namespace [] ["Count"]) _ = Info
-  privacyFor  (Namespace [] ["Count"]) = Public
-  documentFor (Namespace [] ["Count"]) = "A counter"
-  metricsDocFor (Namespace [] ["Count"]) =
+  severityFor (Namespace [] ["Count"]) _ = Just Info
+  privacyFor  (Namespace [] ["Count"]) _ = Just Public
+  documentFor (Namespace [] ["Count"])  = Just "A counter"
+  metricsDocFor (Namespace [] ["Count"]) = Just
     [("count", "an integer")]
   allNamespaces = [Namespace [] ["Count"]]
 

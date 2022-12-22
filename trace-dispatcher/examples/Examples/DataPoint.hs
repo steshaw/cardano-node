@@ -28,10 +28,10 @@ data BaseStats = BaseStats {
 
 instance MetaTrace BaseStats where
   namespaceFor BaseStats{} = Namespace [] ["BaseStats"]
-  severityFor (Namespace _ ["BaseStats"]) _ = Info
-  privacyFor  (Namespace _ ["BaseStats"]) = Public
-  documentFor (Namespace _ ["BaseStats"]) = "Basic statistics"
-  metricsDocFor (Namespace _ ["BaseStats"]) =
+  severityFor (Namespace _ ["BaseStats"]) _ = Just Info
+  privacyFor  (Namespace _ ["BaseStats"]) _ = Just Public
+  documentFor (Namespace _ ["BaseStats"]) = Just "Basic statistics"
+  metricsDocFor (Namespace _ ["BaseStats"]) = Just
     [ ("measure", "This is the value of a single measurment")
     , ("sum", "This is the sum of all measurments")]
   allNamespaces = [Namespace [] ["BaseStats"]]

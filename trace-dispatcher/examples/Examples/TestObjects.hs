@@ -104,16 +104,16 @@ instance MetaTrace (TraceForgeEvent blk) where
   namespaceFor TraceStartLeadershipCheck {} = Namespace [] ["StartLeadershipCheck"]
   namespaceFor TraceSlotIsImmutable {} = Namespace [] ["SlotIsImmutable"]
   namespaceFor TraceBlockFromFuture {} = Namespace  [] ["BlockFromFuture"]
-  severityFor (Namespace _ ["StartLeadershipCheck"]) _ = Info
-  severityFor (Namespace _ ["SlotIsImmutable"]) _ = Error
-  severityFor (Namespace _ ["BlockFromFuture"]) _ = Error
-  severityFor ns _ = error ("TestObject>>severityFor: Unknown namespace " ++ show ns)
-  privacyFor  (Namespace _ _) = Public
-  documentFor (Namespace _ ["StartLeadershipCheck"]) =
+  severityFor (Namespace _ ["StartLeadershipCheck"]) _ = Just Info
+  severityFor (Namespace _ ["SlotIsImmutable"]) _ = Just Error
+  severityFor (Namespace _ ["BlockFromFuture"]) _ = Just Error
+  severityFor _ns _ =Nothing
+  privacyFor  (Namespace _ _) _ = Just Public
+  documentFor (Namespace _ ["StartLeadershipCheck"]) = Just
     "Start of the leadership check\n\
     \\n\
     \We record the current slot number."
-  documentFor (Namespace _ ["SlotIsImmutable"]) =
+  documentFor (Namespace _ ["SlotIsImmutable"]) = Just
       "Leadership check failed: the tip of the ImmutableDB inhabits the\n\
     \current slot\n\
     \\n\
@@ -131,7 +131,7 @@ instance MetaTrace (TraceForgeEvent blk) where
     \ImmutableDB.\n\
     \\n\
     \See also <https://github.com/input-output-hk/ouroboros-network/issues/1462>"
-  documentFor (Namespace _ ["BlockFromFuture"]) =
+  documentFor (Namespace _ ["BlockFromFuture"]) = Just
       "Leadership check failed: the current chain contains a block from a slot\n\
     \/after/ the current slot\n\
     \\n\
@@ -141,8 +141,8 @@ instance MetaTrace (TraceForgeEvent blk) where
     \block at the tip of the chain.\n\
     \\n\
     \See also <https://github.com/input-output-hk/ouroboros-network/issues/1462>"
-  documentFor ns = error ("Unknown namespace (documentFor): " <> show ns)
-  metricsDocFor (Namespace _ _) = []
+  documentFor _ns = Nothing
+  metricsDocFor (Namespace _ _) = Just []
   allNamespaces = [ Namespace [] ["StartLeadershipCheck"]
                   , Namespace [] ["SlotIsImmutable"]
                   , Namespace [] ["BlockFromFuture"]]

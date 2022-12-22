@@ -18,13 +18,6 @@ module Cardano.Logging.Types (
   , LoggingContext(..)
   , emptyLoggingContext
   , Namespace(..)
-  , mkNamespace
-  , mkInnerNamespace
-  , nsReplacePrefix
-  , nsReplaceInner
-  , nsGetPrefix
-  , nsGetInner
-  , nsGetComplete
   , MetaTrace(..)
   , DetailLevel(..)
   , Privacy(..)
@@ -72,42 +65,6 @@ import           Network.HostName (HostName)
 import           Ouroboros.Network.Util.ShowProxy (ShowProxy (..))
 
 
--- | A unique identifier for every message, composed of text
--- A namespace can as well appear with the tracer name (e.g. "ChainDB.OpenEvent.OpenedDB"),
--- or more prefixes, in this moment it is a NamespaceOuter is used
-data Namespace a = Namespace {
-    nsPrefix :: [Text]
-  , nsInner :: [Text]}
-  deriving Eq
-
-instance Show (Namespace a) where
-  show (Namespace [] []) = "emptyNS"
-  show (Namespace [] nsInner) =
-    unpack $ intercalate (singleton '.') nsInner
-  show (Namespace nsPrefix nsInner) =
-    unpack $ intercalate (singleton '.') (nsPrefix ++ nsInner)
-
-mkNamespace :: [Text] -> [Text] -> Namespace a
-mkNamespace = Namespace
-
-mkInnerNamespace :: [Text] -> Namespace a
-mkInnerNamespace = Namespace []
-
-nsReplacePrefix :: Namespace a -> [Text] -> Namespace a
-nsReplacePrefix (Namespace _ i) tl =  Namespace tl i
-
-nsReplaceInner :: Namespace a -> [Text] -> Namespace a
-nsReplaceInner (Namespace o _) =  Namespace o
-
-nsGetInner :: Namespace a -> [Text]
-nsGetInner = nsInner
-
-nsGetPrefix :: Namespace a -> [Text]
-nsGetPrefix = nsPrefix
-
-nsGetComplete :: Namespace a -> [Text]
-nsGetComplete (Namespace [] i) = i
-nsGetComplete (Namespace o i)  = o ++ i
 
 -- | The Trace carries the underlying tracer Tracer from the contra-tracer package.
 --   It adds a 'LoggingContext' and maybe a 'TraceControl' to every message.
@@ -130,6 +87,22 @@ instance Monad m => Monoid (Trace m a) where
     mappend = (<>)
     mempty  = Trace T.nullTracer
 
+-- | A unique identifier for every message, composed of text
+-- A namespace can as well appear with the tracer name (e.g. "ChainDB.OpenEvent.OpenedDB"),
+-- or more prefixes, in this moment it is a NamespaceOuter is used
+data Namespace a = Namespace {
+    nsPrefix :: [Text]
+  , nsInner :: [Text]}
+  deriving Eq
+
+instance Show (Namespace a) where
+  show (Namespace [] []) = "emptyNS"
+  show (Namespace [] nsInner) =
+    unpack $ intercalate (singleton '.') nsInner
+  show (Namespace nsPrefix nsInner) =
+    unpack $ intercalate (singleton '.') (nsPrefix ++ nsInner)
+
+
 -- | Every message needs this to define how to represent itself
 class LogFormatting a where
   -- | Machine readable representation with the possibility to represent
@@ -150,14 +123,16 @@ class LogFormatting a where
 
 class MetaTrace a where
   namespaceFor  :: a -> Namespace a
-  severityFor   :: Namespace a -> Maybe a -> SeverityS
-  privacyFor    :: Namespace a -> Privacy
-  privacyFor _  =  Public
-  documentFor   :: Namespace a -> Text
-  detailsFor    :: Namespace a -> DetailLevel
-  detailsFor _  =  DNormal
-  metricsDocFor :: Namespace a -> [(Text,Text)]
-  metricsDocFor _  =  []
+
+  severityFor   :: Namespace a -> Maybe a -> Maybe SeverityS
+  privacyFor    :: Namespace a -> Maybe a -> Maybe Privacy
+  privacyFor _  _ =  Just Public
+  detailsFor    :: Namespace a -> Maybe a -> Maybe DetailLevel
+  detailsFor _  _ =  Just DNormal
+
+  documentFor   :: Namespace a -> Maybe Text
+  metricsDocFor :: Namespace a -> Maybe [(Text,Text)]
+  metricsDocFor _ = Just []
   allNamespaces :: [Namespace a]
 
 data Metric

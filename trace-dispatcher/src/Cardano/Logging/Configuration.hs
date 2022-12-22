@@ -23,16 +23,17 @@ module Cardano.Logging.Configuration
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
-import qualified Control.Tracer as T
 import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import           Data.List (maximumBy, nub)
 import qualified Data.Map as Map
 import           Data.Maybe (fromMaybe, mapMaybe)
 import           Data.Text (Text, intercalate, unpack)
 
+import qualified Control.Tracer as T
+
 import           Cardano.Logging.DocuGenerator (addFiltered, addLimiter)
 import           Cardano.Logging.FrequencyLimiter (LimitingMessage (..), limitFrequency)
-import           Cardano.Logging.Trace (filterTraceBySeverity, setDetails)
+import           Cardano.Logging.Trace
 import           Cardano.Logging.Types
 
 
@@ -87,6 +88,7 @@ maybeSilent selectorFunc prefixNames tr = do
       T.traceWith (unpackTrace tr) (lc,  Left other)
 
 -- When all messages are filtered out, it is silent
+-- TODO YUP handle exception
 isSilentTracer :: forall a. MetaTrace a => TraceConfig -> Namespace a -> Bool
 isSilentTracer tc (Namespace prefixNS _) =
     let allNS = allNamespaces :: [Namespace a]
@@ -100,7 +102,10 @@ isSilentTracer tc (Namespace prefixNS _) =
           severityFilter = getSeverity tc ns
       in case severityFilter of
             SeverityF Nothing -> True -- silent config
-            SeverityF (Just sevF) -> sevF > msgSeverity
+            SeverityF (Just sevF) ->
+              case msgSeverity of
+                Just msev -> sevF > msev
+                Nothing   -> False -- Impossible case
 
 -- When all messages are filtered out, it is silent
 hasNoMetrics :: forall a. MetaTrace a => TraceConfig -> Namespace a -> Bool

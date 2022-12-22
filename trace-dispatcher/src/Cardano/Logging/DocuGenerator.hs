@@ -20,21 +20,26 @@ module Cardano.Logging.DocuGenerator (
   , DocuResult
 ) where
 
-import           Cardano.Logging.Types
-import           Control.Monad.IO.Class (MonadIO, liftIO)
-import qualified Control.Tracer as T
+
 import           Data.IORef (modifyIORef, newIORef, readIORef)
 import           Data.List (groupBy, intersperse, nub, sortBy)
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import           Data.Text (Text, pack, toLower)
 import qualified Data.Text as T
 import           Data.Text.Internal.Builder (toLazyText)
 import           Data.Text.Lazy (toStrict)
 import           Data.Text.Lazy.Builder (Builder, fromString, fromText, singleton)
 import           Data.Time (getZonedTime)
+
+import           Cardano.Logging.Trace
+import           Cardano.Logging.Types
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import qualified Control.Tracer as T
+
 import           Trace.Forward.Utils.DataPoint (DataPoint (..))
 
-import Debug.Trace
+import           Debug.Trace
 
 -- | Convenience function for adding a namespace prefix to a documented
 addDocumentedNamespace  :: [Text] -> Documented a -> Documented a
@@ -245,10 +250,12 @@ documentTracersRun tracers = do
             modifyIORef docRef
                         (Map.insert
                           idx
-                          ((emptyLogDoc (documentFor ns) (metricsDocFor ns))
-                            { ldSeverityCoded = Just $ severityFor ns Nothing
-                            , ldPrivacyCoded  = Just $ privacyFor ns
-                            , ldDetailsCoded  = Just $ detailsFor ns
+                          ((emptyLogDoc
+                              (fromMaybe mempty (documentFor ns))
+                              (fromMaybe mempty (metricsDocFor ns)))
+                            { ldSeverityCoded = severityFor ns Nothing
+                            , ldPrivacyCoded  = privacyFor ns Nothing
+                            , ldDetailsCoded  = detailsFor ns Nothing
                           }))
             T.traceWith tr (emptyLoggingContext {lcNSInner = nsGetInner ns},
                             Left (TCDocument idx dc)))

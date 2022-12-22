@@ -29,6 +29,15 @@ module Cardano.Logging.Trace (
   , foldMTraceM
   , foldMCondTraceM
   , routingTrace
+
+  , mkNamespace
+  , mkInnerNamespace
+  , nsReplacePrefix
+  , nsReplaceInner
+  , nsPrependInner
+  , nsGetPrefix
+  , nsGetInner
+  , nsGetComplete
 )
 
 where
@@ -171,6 +180,7 @@ setSeverity s (Trace tr) = Trace $ T.contramap
   tr
 
 -- | Sets severities for the messages in this trace based on the selector function
+-- TODO YUP -- trace exception
 withSeverity :: forall m a. (Monad m, MetaTrace a) => Trace m a -> Trace m a
 withSeverity (Trace tr) = Trace $
     T.contramap
@@ -181,15 +191,16 @@ withSeverity (Trace tr) = Trace $
         (lc, Left e) -> (lc, Left e))
       tr
   where
-    process lc cont =
-      let obj = case cont of
-                  Right v -> Just v
-                  _ -> Nothing
-      in if isJust (lcSeverity lc)
-          then (lc,cont)
-          else (lc {lcSeverity =
-            Just (severityFor (Namespace [] (lcNSInner lc) :: Namespace a) obj)}, cont)
-
+    process lc cont@(Right v) =
+      if isJust (lcSeverity lc)
+        then (lc,cont)
+        else (lc {lcSeverity = severityFor (Namespace [] (lcNSInner lc)
+                                              :: Namespace a) (Just v)} , cont)
+    process lc cont@(Left _) =
+      if isJust (lcSeverity lc)
+        then (lc,cont)
+        else (lc {lcSeverity = severityFor (Namespace [] (lcNSInner lc)
+                                              :: Namespace a) Nothing}, cont)
 
 --- | Only processes messages further with a privacy greater then the given one
 filterTraceByPrivacy :: (Monad m) =>
@@ -224,6 +235,7 @@ setPrivacy p (Trace tr) = Trace $
     tr
 
 -- | Sets privacy for the messages in this trace based on the message
+-- TODO YUP handle exception
 withPrivacy :: forall m a. (Monad m, MetaTrace a) => Trace m a -> Trace m a
 withPrivacy (Trace tr) = Trace $
     T.contramap
@@ -234,12 +246,16 @@ withPrivacy (Trace tr) = Trace $
         (lc, Left e) -> (lc, Left e))
       tr
   where
-    process lc cont =
+    process lc cont@(Right v) =
       if isJust (lcPrivacy lc)
         then (lc,cont)
-        else (lc {lcPrivacy = Just (privacyFor (Namespace [] (lcNSInner lc)
-                                                  :: Namespace a))}, cont)
-
+        else (lc {lcPrivacy = privacyFor (Namespace [] (lcNSInner lc)
+                                              :: Namespace a) (Just v)} , cont)
+    process lc cont@(Left _) =
+      if isJust (lcPrivacy lc)
+        then (lc,cont)
+        else (lc {lcPrivacy = privacyFor (Namespace [] (lcNSInner lc)
+                                              :: Namespace a) Nothing}, cont)
 
 -- | Sets detail level for the messages in this trace
 setDetails :: Monad m => DetailLevel -> Trace m a -> Trace m a
@@ -251,6 +267,7 @@ setDetails p (Trace tr) = Trace $
       tr
 
 -- | Sets detail level for the messages in this trace based on the message
+-- TODO Yup handle exception
 withDetails :: forall m a. (Monad m, MetaTrace a) => Trace m a -> Trace m a
 withDetails (Trace tr) = Trace $
   T.contramap
@@ -261,11 +278,18 @@ withDetails (Trace tr) = Trace $
         (lc, Left e) -> (lc, Left e))
       tr
   where
-    process lc cont =
+    process lc cont@(Right v) =
       if isJust (lcDetails lc)
         then (lc,cont)
-        else (lc {lcDetails = Just (detailsFor (Namespace [] (lcNSInner lc)
-                                                   :: Namespace a))}, cont)
+        else (lc {lcDetails = detailsFor (Namespace [] (lcNSInner lc)
+                                              :: Namespace a) (Just v)} , cont)
+    process lc cont@(Left _) =
+      if isJust (lcDetails lc)
+        then (lc,cont)
+        else (lc {lcDetails = detailsFor (Namespace [] (lcNSInner lc)
+                                              :: Namespace a) Nothing}, cont)
+
+
 
 
 -- | Folds the cata function with acc over a.
@@ -354,3 +378,29 @@ routingTrace rf rc = pure $ Trace $ T.arrow $ T.emit $
           T.traceWith (unpackTrace nt) (lc, Right a)
       (lc, Left control) ->
           T.traceWith (unpackTrace rc) (lc, Left control)
+
+mkNamespace :: [Text] -> [Text] -> Namespace a
+mkNamespace = Namespace
+
+mkInnerNamespace :: [Text] -> Namespace a
+mkInnerNamespace = Namespace []
+
+nsReplacePrefix :: Namespace a -> [Text] -> Namespace a
+nsReplacePrefix (Namespace _ i) tl =  Namespace tl i
+
+nsReplaceInner :: Namespace a -> [Text] -> Namespace a
+nsReplaceInner (Namespace o _) =  Namespace o
+
+nsPrependInner :: Text -> Namespace a -> Namespace b
+nsPrependInner t (Namespace o i) =  Namespace o (t : i)
+
+
+nsGetInner :: Namespace a -> [Text]
+nsGetInner = nsInner
+
+nsGetPrefix :: Namespace a -> [Text]
+nsGetPrefix = nsPrefix
+
+nsGetComplete :: Namespace a -> [Text]
+nsGetComplete (Namespace [] i) = i
+nsGetComplete (Namespace o i)  = o ++ i

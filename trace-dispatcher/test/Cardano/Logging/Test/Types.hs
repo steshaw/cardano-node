@@ -73,29 +73,29 @@ instance MetaTrace Message where
   namespaceFor  Message2 {} = Namespace [] ["Message2"]
   namespaceFor  Message3 {} = Namespace [] ["Message3"]
 
-  severityFor   (Namespace _ ["Message1"]) _ = Debug
-  severityFor   (Namespace _ ["Message2"]) _ = Info
-  severityFor   (Namespace _ ["Message3"]) _ = Error
-  severityFor   ns _ = error ("Message>>severityFor: Missing namespace " ++ show ns)
+  severityFor   (Namespace _ ["Message1"]) _ = Just Debug
+  severityFor   (Namespace _ ["Message2"]) _ = Just Info
+  severityFor   (Namespace _ ["Message3"]) _ = Just Error
+  severityFor   _ns _ = Nothing
 
-  privacyFor    (Namespace _ ["Message1"]) = Public
-  privacyFor    (Namespace _ ["Message2"]) = Confidential
-  privacyFor    (Namespace _ ["Message3"]) = Public
-  privacyFor   ns = error ("Message>>privacyFor: Missing namespace " ++ show ns)
+  privacyFor    (Namespace _ ["Message1"]) _ = Just Public
+  privacyFor    (Namespace _ ["Message2"]) _ = Just Confidential
+  privacyFor    (Namespace _ ["Message3"]) _ = Just Public
+  privacyFor    _ns _ = Nothing
 
-  documentFor   (Namespace _ ["Message1"]) = "The first message."
-  documentFor   (Namespace _ ["Message2"]) = "The second message."
-  documentFor   (Namespace _ ["Message3"]) = "The third message."
-  documentFor   ns = error ("Message>>documentFor: Missing namespace " ++ show ns)
+  documentFor   (Namespace _ ["Message1"]) = Just "The first message."
+  documentFor   (Namespace _ ["Message2"]) = Just "The second message."
+  documentFor   (Namespace _ ["Message3"]) = Just "The third message."
+  documentFor   _ns = Nothing
 
-  metricsDocFor (Namespace _ ["Message1"]) =
+  metricsDocFor (Namespace _ ["Message1"]) = Just
     [ ("Metrics1", "A number")
     , ("Metrics2", "A number")
     , ("Metrics3", "A number")
     , ("Metrics4", "A number")
     , ("Metrics5", "A number")
     ]
-  metricsDocFor _                               =  []
+  metricsDocFor _ =  Just []
 
   allNamespaces = [ Namespace [] ["Message1"]
                   , Namespace [] ["Message2"]

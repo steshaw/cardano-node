@@ -25,10 +25,10 @@ instance LogFormatting TestMessage where
 
 instance MetaTrace TestMessage where
   namespaceFor (TestMessage _text) = Namespace [] ["TestMessage"]
-  severityFor (Namespace _ ["TestMessage"]) _ = Info
-  privacyFor  (Namespace _ ["TestMessage"]) = Public
-  documentFor (Namespace _ ["TestMessage"]) = "Just a test"
-  metricsDocFor (Namespace _ ["TestMessage"]) = []
+  severityFor (Namespace _ ["TestMessage"]) _ = Just Info
+  privacyFor  (Namespace _ ["TestMessage"]) _ = Just Public
+  documentFor (Namespace _ ["TestMessage"]) = Just "Just a test"
+  metricsDocFor (Namespace _ ["TestMessage"]) = Just []
   allNamespaces = [Namespace [] ["TestMessage"]]
 
 tracers :: MonadIO m => m (Trace m TestMessage, Trace m TestMessage, Trace m TestMessage)

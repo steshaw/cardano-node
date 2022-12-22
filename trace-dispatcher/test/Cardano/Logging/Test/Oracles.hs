@@ -6,6 +6,7 @@ module Cardano.Logging.Test.Oracles (
   , occurrences
   ) where
 
+import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import           Test.QuickCheck
 import           Text.Read (readMaybe)
@@ -29,11 +30,11 @@ oracleMessages conf ScriptRes {..} =
           filterSeverity = getSeverity conf (nsReplacePrefix ns ["Test"])
           backends = getBackends conf (nsReplacePrefix ns ["Test"])
           inStdout = hasStdoutBackend backends
-                      && fromEnum (severityFor ns Nothing) >= fromEnum filterSeverity
+                      && fromEnum (fromMaybe Error (severityFor ns Nothing)) >= fromEnum filterSeverity
           isCorrectStdout = includedExactlyOnce msg srStdoutRes == inStdout
           inForwarder = elem Forwarder backends
-                          && fromEnum (severityFor ns Nothing) >= fromEnum filterSeverity{-  -}
-                          && privacyFor ns == Public
+                          && fromEnum (fromMaybe Error (severityFor ns Nothing)) >= fromEnum filterSeverity{-  -}
+                          && privacyFor ns Nothing == Just Public
           isCorrectForwarder = includedExactlyOnce msg srForwardRes == inForwarder
           inEKG = elem EKGBackend backends
                       && not (null (asMetrics msg))
