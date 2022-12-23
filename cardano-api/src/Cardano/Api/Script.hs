@@ -790,7 +790,7 @@ data ExecutionUnits =
         -- execution.
         executionMemory :: Natural
      }
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 instance ToCBOR ExecutionUnits where
   toCBOR ExecutionUnits{executionSteps, executionMemory} =

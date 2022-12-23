@@ -111,6 +111,7 @@ import           Cardano.Api.StakePoolMetadata
 import           Cardano.Api.TxMetadata
 import           Cardano.Api.Utils
 import           Cardano.Api.Value
+import           Cardano.Api.Memo
 
 
 -- | The values of the set of /updateable/ protocol paramaters. At any
@@ -278,7 +279,7 @@ data ProtocolParameters =
        -- /Introduced in Alonzo/
        protocolParamMaxCollateralInputs :: Maybe Natural
     }
-  deriving (Eq, Generic, Show)
+  deriving (Eq, Generic, Show, Ord)
 
 instance FromJSON ProtocolParameters where
   parseJSON =
@@ -685,7 +686,7 @@ data ExecutionUnitPrices =
        priceExecutionSteps  :: Rational,
        priceExecutionMemory :: Rational
      }
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 instance ToCBOR ExecutionUnitPrices where
   toCBOR ExecutionUnitPrices{priceExecutionSteps, priceExecutionMemory} =
@@ -739,7 +740,7 @@ fromAlonzoPrices Alonzo.Prices{Alonzo.prSteps, Alonzo.prMem} =
 --
 
 newtype CostModel = CostModel (Map Text Integer)
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
   deriving newtype (ToJSON, FromJSON)
   deriving newtype (ToCBOR, FromCBOR)
 
@@ -1176,10 +1177,16 @@ toLedgerPParams
   :: ShelleyBasedEra era
   -> ProtocolParameters
   -> Ledger.PParams (ShelleyLedgerEra era)
-toLedgerPParams ShelleyBasedEraShelley = toShelleyPParams
-toLedgerPParams ShelleyBasedEraAllegra = toShelleyPParams
-toLedgerPParams ShelleyBasedEraMary    = toShelleyPParams
-toLedgerPParams ShelleyBasedEraAlonzo  = toAlonzoPParams
+toLedgerPParams = memoise toLedgerPParams'
+
+toLedgerPParams'
+  :: ShelleyBasedEra era
+  -> ProtocolParameters
+  -> Ledger.PParams (ShelleyLedgerEra era)
+toLedgerPParams' ShelleyBasedEraShelley = toShelleyPParams
+toLedgerPParams' ShelleyBasedEraAllegra = toShelleyPParams
+toLedgerPParams' ShelleyBasedEraMary    = toShelleyPParams
+toLedgerPParams' ShelleyBasedEraAlonzo  = toAlonzoPParams
 
 toShelleyPParams :: ProtocolParameters -> Shelley.PParams ledgerera
 toShelleyPParams ProtocolParameters {
